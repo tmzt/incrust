@@ -20,21 +20,22 @@ use syntax::codemap::{Span, Spanned, dummy_spanned, respan, spanned, DUMMY_SP};
 use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult};
 use syntax::ext::build::AstBuilder;
 use syntax::ext::quote::rt::ToTokens;
-use syntax::parse::{token, PResult};
 use syntax::print::pprust::{token_to_string, tts_to_string};
 use syntax::tokenstream::TokenTree;
 use syntax::util::small_vector::SmallVector;
+use syntax::parse::{token, PResult};
+use syntax::parse::common::SeqSep;
+use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    //reg.register_macro("jsr_call", jsr_call);
     reg.register_macro("emit_rust_template", emit_rust_template);
 }
 
-fn rust_template_fn_item<'a>(ecx: &'a ExtCtxt, span: Span) -> P<ast::Item> {
-    let name = ecx.ident_of(&format!("rusttemplate_{}", "root"));
+fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: &String, view_tokens: Vec<TokenTree>) -> P<ast::Item> {
+    let name = ecx.ident_of(&format!("rusttemplate_view_{}", view_name));
 
     let stmt = quote_stmt!(ecx,
         {
@@ -47,10 +48,44 @@ fn rust_template_fn_item<'a>(ecx: &'a ExtCtxt, span: Span) -> P<ast::Item> {
 
     let block = ecx.block(span, stmts);
     let inputs = vec![];
-    //let ret_ty = ast::FunctionRetTy::Default(DUMMY_SP);
     let ret_ty = quote_ty!(ecx, ());
 
     ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
+}
+
+fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: String, view_tokens: Vec<TokenTree>) -> Box<MacResult + 'cx> {
+    let item = create_view_item(ecx, span, &view_name, view_tokens);
+
+    let name = ecx.ident_of(&format!("rusttemplate_view_{}", view_name));
+    let args = vec![];
+    let call_expr = ecx.expr_call_ident(span, name, args);
+
+    let block = ecx.block(span, vec![
+            ecx.stmt_item(span, item),
+            ecx.stmt_expr(call_expr)]);
+
+    MacEager::expr(ecx.expr_block(block))
+}
+
+fn parse_view_body<'a>(parser: &mut Parser<'a>) -> PResult<'a, Vec<TokenTree>> {
+    try!(parser.expect(&token::OpenDelim(token::Bracket)));
+
+    parser.parse_seq_to_end(
+        &token::CloseDelim(token::Bracket),
+        SeqSep::none(),
+        |parser| parser.parse_token_tree())
+}
+
+fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>) -> Box<MacResult + 'cx> {
+    let view_token = parser.parse_ident().unwrap();
+    let view_name = parser.parse_ident().unwrap();
+
+    let view_tokens = parse_view_body(parser).unwrap();
+    create_template_block(ecx, DUMMY_SP, view_name.name.to_string(), view_tokens)
+}
+
+fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>) -> Box<MacResult + 'cx> {
+    parse_view(ecx, parser)
 }
 
 fn emit_rust_template<'cx>(
@@ -62,17 +97,9 @@ fn emit_rust_template<'cx>(
         match (tts.get(i), tts.get(i+1), tts.get(i+2)) {
             (Some(&TokenTree::Token(_, token::Ident(element_type))), _, _) => {
                 ecx.span_warn(span, &format!("Outputing elementOpen for {}", &element_type.to_string()));
-                let item = rust_template_fn_item(&ecx, span);
 
-                let name = ecx.ident_of(&format!("rusttemplate_{}", "root"));
-                let args = vec![];
-                let call_expr = ecx.expr_call_ident(span, name, args);
-
-                let block = ecx.block(span, vec![
-                        ecx.stmt_item(span, item),
-                        ecx.stmt_expr(call_expr)]);
-
-                return MacEager::expr(ecx.expr_block(block));
+                let mut parser = ecx.new_parser_from_tts(tts);
+                return parse_template(ecx, &mut parser);
             },
             (Some(_), _, _) => break,
             (None, _, _) => break
@@ -82,88 +109,4 @@ fn emit_rust_template<'cx>(
     //MacEager::stmts(SmallVector::many(result))
     //MacEager::items(SmallVector::many(items))
     DummyResult::any(span)
-}
-
-
-fn parse_js_call<F>(tts: &[TokenTree], f: &mut F) -> Vec<Spanned<String>>
-        where F: FnMut(&str, &str, Span, &[TokenTree]) -> Vec<Spanned<String>> {
-    let mut result = Vec::new();
-
-    let mut i = 0;
-    loop {
-        match (tts.get(i), tts.get(i+1), tts.get(i+2)) {
-            (Some(&TokenTree::Token(_, token::Ident(func_name))),
-                Some(&TokenTree::Token(_, token::Ident(element_type))),
-                Some(&TokenTree::Delimited(span, ref contents))) => {
-                    i += 1;
-                    result.extend(f(&func_name.to_string(), &element_type.to_string(), span, &contents.tts))
-                },
-
-/*
-            (Some(&TokenTree::Token(span, ref tok)), _, _) => {
-                            result.push(respan(span, token_to_string(tok)));
-                        },
-*/
-
-            (Some(&TokenTree::Delimited(_, _)), _, _) => unimplemented!(),
-            (Some(&TokenTree::Sequence(..)), _, _) => unimplemented!(),
-            (Some(_), _, _) => break,
-            (None, _, _) => break
-        }
-    }
-
-    result
-}
-
-#[cfg(with_plugin)]
-fn jsr_call<'cx>(
-    ecx: &'cx mut ExtCtxt,
-    span: Span,
-    token_tree: &[TokenTree]) -> Box<MacResult + 'cx> {
-        let mut items = Vec::new();
-
-        parse_js_call(token_tree, &mut |func_name, element_type, span, tts| {
-            println!("Call function {0} with element_type {1} \n", func_name, element_type);
-
-            let s = token::intern("calling");
-            //let s_token = ecx.expr(span, s);
-            let s_lit = ecx.expr_lit(span, s);
-            let s_token = ast::LitKind::Str(s, StrStyle::Cooked);
-
-            let item = ecx.item(span,
-                token::keywords::Invalid.ident(),
-                Vec::new(),
-                s_token);
-
-            /*
-            items.push(item);
-            */
-
-            /*
-            let call_expr = match function.call_expr(ecx) {
-                Ok(expr) => expr,
-                Err(mut err) => {
-                    err.emit();
-                    return DummyResult::expr(span);
-                }
-            };
-
-            let block = ecx.block(span,
-                                vec![ecx.stmt_item(span, item),
-                                    ecx.stmt_expr(call_expr)]);
-
-            MacEager::expr(ecx.expr_block(block))
-            */
-
-            vec![s_token]
-        });
-
-        MacEager::items(SmallVector::many(items))
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
 }
