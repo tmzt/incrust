@@ -1,0 +1,19 @@
+[package]
+name = "incrust_server_example"
+version = "0.1.0"
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
+
+[dependencies]
+nickel = "0.8.1"
+
+[dependencies.incrust_plugin]
+path = "../plugin"
+
+[build-dependencies.incrust_codegen]
+path = "../codegen"
+
+[dependencies.incrust_macros]
+path = "../macros"
+
+[build-dependencies.incrust_macros]
+path = "../macros"

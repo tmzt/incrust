@@ -1,0 +1,10 @@
+[package]
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
+name = "src-incrust"
+version = "0.1.0"
+
+[dependencies]
+nickel = "0.8.1"
+
+[workspace]
+members = ["plugin", "server", "codegen", "macros"]
