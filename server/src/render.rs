@@ -102,7 +102,13 @@ macro_rules! incr_template {
 }
 
 fn render_template() -> String {
-    emit_rust_template!(view root [ p [ {"testing"} ] ])
+    emit_rust_template!(
+        view root [
+            h1 [ {"Heading"}]
+
+            p [ {"testing"} ]
+        ]
+    )
 }
 
 fn render_page(page: &mut String) {
