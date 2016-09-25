@@ -105,7 +105,7 @@ macro_rules! incr_template {
 }
 
 fn render_template() -> String {
-    emit_rust_template!(view root [ p [ ] ])
+    emit_rust_template!(view root [ p [ {"testing"} ] ])
 }
 
 fn render_page(page: &mut String) {
@@ -119,9 +119,11 @@ fn render_page(page: &mut String) {
     // HTML template
     write!(page, "<html><head><title>incrust demo</title>");
     write!(page, script_src!("/assets/js/incremental-dom.js"));
-    write!(page, "<script>{}</script>", js);
+//    write!(page, "<script>{}</script>", js);
 
     let s = render_template();
+    println!("Contents: [{}]", s);
+
     write!(page, "</head><body><div id=\"root\">{}</div><div id=\"rust-code\">{}</div></body></html>", s, rs);
 }
 
