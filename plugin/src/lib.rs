@@ -39,7 +39,7 @@ trait IntoViewItem {
 }
 
 trait IntoBlock {
-    fn into_block(&self) -> P<ast::Block>;
+    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block>;
 }
 
 struct View {
@@ -50,26 +50,53 @@ struct View {
 
 impl IntoViewItem for View {
     fn into_view_item<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Item> {
-        create_view_item(ecx, self.span, &self.name, &self.tokens)
+        create_view_item(ecx, self.span, &self)
     }
 }
 
-fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: &String, view_tokens: &Vec<TokenTree>) -> P<ast::Item> {
-    let name = ecx.ident_of(&format!("rusttemplate_view_{}", view_name));
+struct Element {
+    element_type: String,
+    span: Span,
+    tokens: Vec<TokenTree>
+}
 
-    let stmt = quote_stmt!(ecx,
-        {
-            println!("Testing");
-        }
-    ).unwrap();
+impl IntoBlock for Element {
+    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
+        let element_type = &self.element_type;
+        let stmt = quote_stmt!(ecx,
+            {
+                println!("Opening and closing [{}] element", $element_type);
+                format!("<{}></{}>", $element_type, $element_type)
+            }
+        ).unwrap();
 
-    let args = "";
-    let stmts = vec![ stmt ];
+        let stmts = vec![ stmt ];
+        ecx.block(self.span, stmts)
+    }
+}
 
-    let block = ecx.block(span, stmts);
+fn parse_element<'a>(parser: &mut Parser<'a>, span: Span) -> PResult<'a, Element> {
+    let element_type = parser.parse_ident().unwrap();
+    try!(parser.expect(&token::OpenDelim(token::Bracket)));
+
+    let tokens = parser.parse_seq_to_end(
+        &token::CloseDelim(token::Bracket),
+        SeqSep::none(),
+        |parser| parser.parse_token_tree())
+        .unwrap();
+
+    Ok(Element { element_type: element_type.name.to_string(), span: span, tokens: tokens })
+}
+
+fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::Item> {
+    let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
+
+    let mut parser = ecx.new_parser_from_tts(&view.tokens);
+    let element = parse_element(&mut parser, span).unwrap();
+    let block = element.into_block(ecx);
+
     let inputs = vec![];
-    let ret_ty = quote_ty!(ecx, ());
-
+    let ret_ty = quote_ty!(ecx, String);
     ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
 }
 

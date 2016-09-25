@@ -1,5 +1,3 @@
-#![feature(concat_idents)]
-
 #![feature(plugin)]
 #![plugin(incrust_plugin)]
 
