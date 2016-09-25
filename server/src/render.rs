@@ -106,7 +106,9 @@ macro_rules! incr_template {
 
 
 fn render_template() -> &'static str {
-    emit_rust_template!("p", "p", "p");
+    //emit_rust_template!("p", "p", "p");
+    emit_rust_template!(view root [ p [ "test" ] ]);
+
     ""
 }
 

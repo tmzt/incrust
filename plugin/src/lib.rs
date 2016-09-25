@@ -34,7 +34,27 @@ pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_macro("emit_rust_template", emit_rust_template);
 }
 
-fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: &String, view_tokens: Vec<TokenTree>) -> P<ast::Item> {
+trait IntoViewItem {
+    fn into_view_item<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Item>;
+}
+
+trait IntoBlock {
+    fn into_block(&self) -> P<ast::Block>;
+}
+
+struct View {
+    name: String,
+    span: Span,
+    tokens: Vec<TokenTree>
+}
+
+impl IntoViewItem for View {
+    fn into_view_item<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Item> {
+        create_view_item(ecx, self.span, &self.name, &self.tokens)
+    }
+}
+
+fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: &String, view_tokens: &Vec<TokenTree>) -> P<ast::Item> {
     let name = ecx.ident_of(&format!("rusttemplate_view_{}", view_name));
 
     let stmt = quote_stmt!(ecx,
@@ -53,16 +73,26 @@ fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: &String, view
     ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
 }
 
-fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, view_name: String, view_tokens: Vec<TokenTree>) -> Box<MacResult + 'cx> {
-    let item = create_view_item(ecx, span, &view_name, view_tokens);
+fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, views: Vec<View>) -> Box<MacResult + 'cx> {
+    let view_item_stmts: Vec<ast::Stmt> = views.iter()
+        .map(|view| view.into_view_item(ecx))
+        .map(|item| ecx.stmt_item(span, item))
+    .collect();
 
-    let name = ecx.ident_of(&format!("rusttemplate_view_{}", view_name));
+    let mut stmts = Vec::new();
+    stmts.extend(view_item_stmts);
+
+    let name = ecx.ident_of("rusttemplate_view_root");
     let args = vec![];
     let call_expr = ecx.expr_call_ident(span, name, args);
+    stmts.push(ecx.stmt_expr(call_expr));
 
+    /*
     let block = ecx.block(span, vec![
             ecx.stmt_item(span, item),
             ecx.stmt_expr(call_expr)]);
+    */
+    let block = ecx.block(span, stmts);
 
     MacEager::expr(ecx.expr_block(block))
 }
@@ -76,22 +106,32 @@ fn parse_view_body<'a>(parser: &mut Parser<'a>) -> PResult<'a, Vec<TokenTree>> {
         |parser| parser.parse_token_tree())
 }
 
-fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>) -> Box<MacResult + 'cx> {
+fn parse_single_view<'a>(parser: &mut Parser<'a>, span: Span) -> PResult<'a, View> {
     let view_token = parser.parse_ident().unwrap();
     let view_name = parser.parse_ident().unwrap();
 
     let view_tokens = parse_view_body(parser).unwrap();
-    create_template_block(ecx, DUMMY_SP, view_name.name.to_string(), view_tokens)
+
+    Ok(View { name: view_name.name.to_string(), span: span, tokens: view_tokens })
 }
 
 fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>) -> Box<MacResult + 'cx> {
-    parse_view(ecx, parser)
+    let view = parse_single_view(parser, DUMMY_SP).unwrap();
+    let views = vec![view];
+
+    create_template_block(ecx, DUMMY_SP, views)
 }
 
 fn emit_rust_template<'cx>(
         ecx: &'cx mut ExtCtxt,
         span: Span,
         tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+
+    let mut parser = ecx.new_parser_from_tts(tts);
+    parse_template(ecx, &mut parser)
+
+
+    /*
     let mut i = 0;
     loop {
         match (tts.get(i), tts.get(i+1), tts.get(i+2)) {
@@ -105,8 +145,9 @@ fn emit_rust_template<'cx>(
             (None, _, _) => break
         }
     }
+    */
 
     //MacEager::stmts(SmallVector::many(result))
     //MacEager::items(SmallVector::many(items))
-    DummyResult::any(span)
+    //DummyResult::any(span)
 }
