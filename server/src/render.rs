@@ -79,9 +79,6 @@ macro_rules! incr_template_gen {
         output_js_call!($js, elementOpen $element_type);
         output_rust_call!($rs, elementOpen $element_type);
 
-        //write!($rs, "{}", emit_rust_template!($element_type, $element_type, $element_type));
-        //emit_rust_template!($element_type, $element_type, $element_type);
-
         incr_template_gen!($js, $rs, $($inner)*);
 
         output_js_call!($js, elementClose $element_type);
@@ -117,9 +114,11 @@ fn render_page(page: &mut String) {
         output_js_call!(&mut js, render_on_load root);
 
     // HTML template
-    write!(page, "<html><head><title>incrust demo</title>");
-    write!(page, script_src!("/assets/js/incremental-dom.js"));
-//    write!(page, "<script>{}</script>", js);
+        write!(page, "<html><head><title>incrust demo</title>");
+        write!(page, script_src!("/assets/js/incremental-dom.js"));
+
+    // TODO: Renable this once the Rust output HTML and IncrementalDOM rendering match
+        // write!(page, "<script>{}</script>", js);
 
     let s = render_template();
     println!("Contents: [{}]", s);
@@ -134,22 +133,3 @@ pub fn render() -> String {
 
     page
 }
-
-/*
-pub fn render() -> String {
-    concat![
-        "<html><head><title>incrust demo</title>",
-        script_src!("/assets/js/incremental-dom.js"),
-        "<script>",
-            incr_template![
-                view root [ p [ "test" ] ]
-            ],
-            "document.addEventListener('DOMContentLoaded', function() { IncrementalDOM.patch(document.querySelector('#root'), template_root); });",
-        "</script>",
-        "</head><body><div id=\"root\"></div></body></html>"
-    ]
-
-//    jsr_call! [elementOpen, p, color => "red", ]
-//    jsr_call! [elementOpen, p, color => "red"]
-}
-*/

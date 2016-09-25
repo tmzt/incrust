@@ -123,17 +123,6 @@ impl IntoWriteStmt for OutputAction {
     }
 }
 
-/*
-impl IntoBlock for Iterator<Item=IntoWriteStmt> {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-        let w = quote_ty!(output);
-        let stmts = self.map(|ws| ws.into_write_stmt(ecx, None)).collect();
-
-        ecx.block(DUMMY_SP, stmts)
-    }
-}
-*/
-
 impl IntoOutputAction for Element {
     fn into_output_action<'cx>(&self, ecx: &'cx ExtCtxt) -> OutputAction {
         // For now, output the element as a token string
@@ -159,21 +148,6 @@ impl IntoOutputAction for TemplateNode {
     }
 }
 
-impl IntoBlock for Element {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-        let element_type = &self.element_type;
-        let stmt = quote_stmt!(ecx,
-            {
-                println!("Opening and closing [{}] element", $element_type);
-                format!("<{}></{}>", $element_type, $element_type)
-            }
-        ).unwrap();
-
-        let stmts = vec![ stmt ];
-        ecx.block(self.span, stmts)
-    }
-}
-
 impl IntoBlock for View {
     fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
         let name = &self.name;
@@ -182,9 +156,6 @@ impl IntoBlock for View {
         let w_ident = ecx.ident_of("out");
         let mut stmts = Vec::new();
 
-//        let string_expr = quote_stmt!(ecx, String::new());
-//       //let out_stmt = ecx.stmt_let(DUMMY_SP, true, w_ident, ecx.expr_vec_ng(DUMMY_SP));
-//        let out_stmt = ecx.stmt_let(DUMMY_SP, true, w_ident, string_expr);
         let out_stmt = quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap();
         stmts.push(out_stmt);
 
@@ -194,55 +165,21 @@ impl IntoBlock for View {
             .collect();
         stmts.extend(write_stmts);
 
-//        stmts.push(quote_stmt!(ecx, println!(format!("$out contains [{}]", $w_ident))).unwrap());
+        // Return rendered string for now
         stmts.push(quote_stmt!(ecx, $w_ident).unwrap());
 
         ecx.block(self.span, stmts)
     }
 }
 
-/*
-impl IntoBlock for TextNodes {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-        let contents = &self.contents;
-        let stmt = quote_stmt!(ecx,
-            {
-                println!("Output text nodes as block");
-                format!("{}", $contents)
-            }
-        ).unwrap();
-
-        let stmts = vec![ stmt ];
-        ecx.block(self.span, stmts)
-    }
-}
-*/
-
-/*
-impl IntoBlock for TemplateNode {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-        match *self {
-            TemplateNode::ElementNode(ref element) => { element.into_block() },
-            TemplateNode::TextNodes(tokens) => {
-
-                let s = tts_to_string(tokens);
-                let text_node = TextNode { contents: s, span: DUMMY_SP };
-
-                text_node.into_block(ecx)
-            }
-        }
-    }
-}
-*/
-
 fn parse_element<'a>(parser: &mut Parser<'a>, span: Span, element_type: String) -> PResult<'a, Element> {
     try!(parser.expect(&token::OpenDelim(token::Bracket)));
 
+    // TODO: Handle nested contents
     let tokens = parser.parse_seq_to_end(
         &token::CloseDelim(token::Bracket),
         SeqSep::none(),
         |parser| parser.parse_token_tree())
-        //|parser| parse_contents(parser, DUMMY_SP))
         .unwrap();
 
     Ok(Element { element_type: element_type, span: span, tokens: tokens })
@@ -297,14 +234,6 @@ fn parse_contents<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Spa
         }
     }
 
-    /*
-    while !parser.look_ahead(1, |t| *t == token::CloseDelim(token::Bracket)) {
-        ecx.span_warn(span, "Parsing node");
-        let node = try!(parse_node(ecx, parser, DUMMY_SP));
-        nodes.push(node);
-    }
-    */
-
     Ok(nodes)
 }
 
@@ -314,16 +243,7 @@ fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -
 
     try!(parser.expect(&token::OpenDelim(token::Bracket)));
 
-    /*
-    let tokens = parser.parse_seq_to_end(
-        &token::CloseDelim(token::Bracket),
-        SeqSep::none(),
-        |pp| pp.parse_token_tree())
-        .unwrap();
-    */
-
     let nodes = try!(parse_contents(ecx, parser, span));
-    //let nodes = nodes.iter().flat_map(|node| node).collect();
 
     Ok(View { name: view_name.name.to_string(), span: span, nodes: nodes })
 }
@@ -331,12 +251,6 @@ fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -
 fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::Item> {
     let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
     let block = view.into_block(ecx);
-
-    /*
-    let mut parser = ecx.new_parser_from_tts(&view.tokens);
-    let element = parse_element(&mut parser, span).unwrap();
-    let block = element.into_block(ecx);
-    */
 
     let inputs = vec![];
     let ret_ty = quote_ty!(ecx, String);
@@ -357,11 +271,6 @@ fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, views: Vec<View>) -
     let call_expr = ecx.expr_call_ident(span, name, args);
     stmts.push(ecx.stmt_expr(call_expr));
 
-    /*
-    let block = ecx.block(span, vec![
-            ecx.stmt_item(span, item),
-            ecx.stmt_expr(call_expr)]);
-    */
     let block = ecx.block(span, stmts);
 
     MacEager::expr(ecx.expr_block(block))
@@ -388,24 +297,4 @@ fn emit_rust_template<'cx>(
 
     let mut parser = ecx.new_parser_from_tts(tts);
     parse_template(ecx, &mut parser)
-
-    /*
-    let mut i = 0;
-    loop {
-        match (tts.get(i), tts.get(i+1), tts.get(i+2)) {
-            (Some(&TokenTree::Token(_, token::Ident(element_type))), _, _) => {
-                ecx.span_warn(span, &format!("Outputing elementOpen for {}", &element_type.to_string()));
-
-                let mut parser = ecx.new_parser_from_tts(tts);
-                return parse_template(ecx, &mut parser);
-            },
-            (Some(_), _, _) => break,
-            (None, _, _) => break
-        }
-    }
-    */
-
-    //MacEager::stmts(SmallVector::many(result))
-    //MacEager::items(SmallVector::many(items))
-    //DummyResult::any(span)
 }
