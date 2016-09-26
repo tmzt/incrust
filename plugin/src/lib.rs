@@ -28,6 +28,14 @@ use syntax::parse::common::SeqSep;
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
+mod codegen;
+mod node;
+mod output_actions;
+
+use codegen::IntoWriteStmt;
+use output_actions::{OutputAction, IntoOutputActions};
+use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
+
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
@@ -43,14 +51,6 @@ trait IntoBlock {
     fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block>;
 }
 
-trait IntoWriteStmt {
-    fn into_write_stmt<'cx>(&self, ecx: &'cx ExtCtxt, w: ast::Ident) -> ast::Stmt;
-}
-
-trait IntoOutputActions {
-    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction>;
-}
-
 struct View {
     name: String,
     span: Span,
@@ -63,140 +63,6 @@ impl IntoViewItem for View {
     }
 }
 
-struct Element {
-    element_type: String,
-    span: Span,
-    nodes: Vec<TemplateNode>
-}
-
-struct TemplateExpr {
-    span: Span,
-    tokens: Vec<TokenTree>
-}
-
-// Represents a parsed node in the template syntax
-enum TemplateNode {
-    ElementNode(Element),
-    ExprNode(TemplateExpr)
-}
-
-// Represents a type of action to perform when rendering
-enum OutputAction {
-    // Text and computed values
-    Write(String),
-    WriteResult(TemplateExpr),
-
-    // Elements
-    WriteOpen(String),
-    WriteClose(String),
-    WriteVoid(String)
-
-    //CallTemplate(String),
-    //WriteElement(Element),
-}
-
-impl IntoWriteStmt for OutputAction {
-    fn into_write_stmt<'cx>(&self, ecx: &'cx ExtCtxt, w: ast::Ident) -> ast::Stmt {
-        match *self {
-            OutputAction::Write(ref contents) => {
-                //let w_name =  w.name.to_string();
-                let stmt = quote_stmt!(ecx,
-                    {
-                        println!("Writing contents [{}] to ${}", $contents, "out");
-                        write!($w, "{}", $contents);
-                    }
-                ).unwrap();
-
-                stmt
-            },
-
-            // For now, write the expression as a string
-            OutputAction::WriteResult(ref template_expr) => {
-                let contents = tts_to_string(&template_expr.tokens);
-                let stmt = quote_stmt!(ecx,
-                    {
-                        println!("Writing contents [{}] to ${}", $contents, "out");
-                        write!(out, $contents);
-                    }
-                ).unwrap();
-
-                stmt
-            },
-
-            OutputAction::WriteOpen(ref element_type) => {
-                let contents = format!("<{}>", element_type);
-                let stmt = quote_stmt!(ecx,
-                    {
-                        println!("Writing contents [{}] to ${}", $contents, "out");
-                        write!(out, $contents);
-                    }
-                ).unwrap();
-
-                stmt
-            },
-
-            OutputAction::WriteClose(ref element_type) => {
-                let contents = format!("</{}>", element_type);
-                let stmt = quote_stmt!(ecx,
-                    {
-                        println!("Writing contents [{}] to ${}", $contents, "out");
-                        write!(out, $contents);
-                    }
-                ).unwrap();
-
-                stmt
-            },
-
-            OutputAction::WriteVoid(ref element_type) => {
-                let contents = format!("<{} />", element_type);
-                let stmt = quote_stmt!(ecx,
-                    {
-                        println!("Writing contents [{}] to ${}", $contents, "out");
-                        write!(out, $contents);
-                    }
-                ).unwrap();
-
-                stmt
-            }            
-        }
-    }
-}
-
-impl IntoOutputActions for Element {
-    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-        let nodes = &self.nodes;
-        let element_type = &self.element_type;
-        let mut output_actions = Vec::new();
-
-        output_actions.push(OutputAction::WriteOpen(element_type.clone()));
-
-        let child_actions : Vec<OutputAction> = nodes.iter()
-            .flat_map(|node| node.into_output_actions(ecx))
-            .collect();
-        output_actions.extend(child_actions);
-
-        output_actions.push(OutputAction::WriteClose(element_type.clone()));
-
-        output_actions
-    }
-}
-
-impl IntoOutputActions for TemplateExpr {
-    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-        // For now, output the element as a token string
-        let contents = tts_to_string(&self.tokens);
-        vec![OutputAction::Write(contents)]
-    }
-}
-
-impl IntoOutputActions for TemplateNode {
-    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-        match self {
-            &TemplateNode::ElementNode(ref element) => element.into_output_actions(ecx),
-            &TemplateNode::ExprNode(ref template_expr) => template_expr.into_output_actions(ecx)
-        }
-    }
-}
 
 impl IntoOutputActions for View {
     fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
@@ -239,65 +105,6 @@ impl IntoBlock for View {
 
         ecx.block(self.span, stmts)
     }
-}
-
-fn parse_element<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, element_type: String) -> PResult<'a, Element> {
-    try!(parser.expect(&token::OpenDelim(token::Bracket)));
-
-    let nodes = try!(parse_contents(ecx, &mut parser, span));
-
-    Ok(Element { element_type: element_type, span: span, nodes: nodes })
-}
-
-fn parse_template_expr<'a>(parser: &mut Parser<'a>, span: Span) -> PResult<'a, TemplateExpr> {
-    try!(parser.expect(&token::OpenDelim(token::Brace)));
-
-    let tokens = parser.parse_seq_to_end(
-        &token::CloseDelim(token::Brace),
-        SeqSep::none(),
-        |parser| parser.parse_token_tree())
-        .unwrap();
-
-    Ok(TemplateExpr { span: span, tokens: tokens })
-}
-
-fn parse_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, TemplateNode> {
-    let is_open = parser.token == token::OpenDelim(token::Brace);
-
-    if is_open {
-        // Template expression
-        let template_expr = try!(parse_template_expr(&mut parser, DUMMY_SP));
-        Ok(TemplateNode::ExprNode(template_expr))
-    } else {
-        ecx.span_warn(span, "Expecting nested element");
-
-        // Nested element
-        let element_type = try!(parser.parse_ident());
-        let element = try!(parse_element(ecx, &mut parser, DUMMY_SP, element_type.name.to_string()));
-
-        Ok(TemplateNode::ElementNode(element))
-    }
-}
-
-fn parse_contents<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -> PResult<'a, Vec<TemplateNode>> {
-    let mut nodes : Vec<TemplateNode> = Vec::new();
-
-    loop {
-        match parser.token {
-            token::CloseDelim(token::Bracket) => {
-                ecx.span_warn(span, "Got close contents");
-                break;
-            },
-
-            _ => {
-                ecx.span_warn(span, "Parsing node");
-                let node = try!(parse_node(ecx, parser, DUMMY_SP));
-                nodes.push(node);
-            }
-        }
-    }
-
-    Ok(nodes)
 }
 
 fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -> PResult<'a, View> {
