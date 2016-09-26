@@ -54,7 +54,7 @@ trait IntoBlock {
 struct View {
     name: String,
     span: Span,
-    nodes: Vec<TemplateNode>
+    nodes: Vec<TemplateNode>,
 }
 
 impl IntoViewItem for View {
@@ -107,7 +107,10 @@ impl IntoBlock for View {
     }
 }
 
-fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -> PResult<'a, View> {
+fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt,
+                       parser: &mut Parser<'a>,
+                       span: Span)
+                       -> PResult<'a, View> {
     let view_token = parser.parse_ident().unwrap();
     let view_name = parser.parse_ident().unwrap();
 
@@ -115,7 +118,11 @@ fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -
 
     let nodes = try!(parse_contents(ecx, parser, span));
 
-    Ok(View { name: view_name.name.to_string(), span: span, nodes: nodes })
+    Ok(View {
+        name: view_name.name.to_string(),
+        span: span,
+        nodes: nodes,
+    })
 }
 
 fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::Item> {
@@ -127,11 +134,14 @@ fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::I
     ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
 }
 
-fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, views: Vec<View>) -> Box<MacResult + 'cx> {
+fn create_template_block<'cx>(ecx: &'cx ExtCtxt,
+                              span: Span,
+                              views: Vec<View>)
+                              -> Box<MacResult + 'cx> {
     let view_item_stmts: Vec<ast::Stmt> = views.iter()
         .map(|view| view.into_view_item(ecx))
         .map(|item| ecx.stmt_item(span, item))
-    .collect();
+        .collect();
 
     let mut stmts = Vec::new();
     stmts.extend(view_item_stmts);
@@ -146,7 +156,9 @@ fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, views: Vec<View>) -
     MacEager::expr(ecx.expr_block(block))
 }
 
-fn parse_js_out_var<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
+fn parse_js_out_var<'cx, 'a>(ecx: &'cx mut ExtCtxt,
+                             parser: &mut Parser<'a>)
+                             -> PResult<'a, P<ast::Expr>> {
     // Read js variable expression
     let js_ident = try!(parser.parse_expr());
     // Consume ,
@@ -159,38 +171,49 @@ fn construct_js_function(view_name: String, output_actions: Vec<OutputAction>) -
     ""
 }
 
-fn parse_emit_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>, js_ident: Option<P<ast::Expr>>) -> PResult<'a, Box<MacResult + 'cx>> {
+fn parse_emit_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt,
+                                     parser: &mut Parser<'a>,
+                                     js_ident: Option<P<ast::Expr>>)
+                                     -> PResult<'a, Box<MacResult + 'cx>> {
     let view = try!(parse_view(ecx, parser, DUMMY_SP));
     let views = vec![view];
 
     Ok(create_template_block(ecx, DUMMY_SP, views))
 }
 
-fn parse_emit_js_and_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> PResult<'a, Box<MacResult + 'cx>> {
+fn parse_emit_js_and_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt,
+                                            parser: &mut Parser<'a>)
+                                            -> PResult<'a, Box<MacResult + 'cx>> {
     let js_ident = try!(parse_js_out_var(ecx, parser));
     parse_emit_rust_template(ecx, parser, Some(js_ident))
 }
 
-fn emit_rust_template<'cx>(
-        ecx: &'cx mut ExtCtxt,
-        span: Span,
-        tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+fn emit_rust_template<'cx>(ecx: &'cx mut ExtCtxt,
+                           span: Span,
+                           tts: &[TokenTree])
+                           -> Box<MacResult + 'cx> {
 
     let mut parser = ecx.new_parser_from_tts(tts);
     match parse_emit_rust_template(ecx, &mut parser, None) {
-        Err(mut err) => { err.emit(); return DummyResult::expr(DUMMY_SP); },
-        Ok(result) => result
+        Err(mut err) => {
+            err.emit();
+            return DummyResult::expr(DUMMY_SP);
+        }
+        Ok(result) => result,
     }
 }
 
-fn emit_rust_and_js_template<'cx>(
-        ecx: &'cx mut ExtCtxt,
-        span: Span,
-        tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+fn emit_rust_and_js_template<'cx>(ecx: &'cx mut ExtCtxt,
+                                  span: Span,
+                                  tts: &[TokenTree])
+                                  -> Box<MacResult + 'cx> {
 
     let mut parser = ecx.new_parser_from_tts(tts);
     match parse_emit_js_and_rust_template(ecx, &mut parser) {
-        Err(mut err) => { err.emit(); return DummyResult::expr(DUMMY_SP); },
-        Ok(result) => result
+        Err(mut err) => {
+            err.emit();
+            return DummyResult::expr(DUMMY_SP);
+        }
+        Ok(result) => result,
     }
 }

@@ -19,20 +19,14 @@ pub enum OutputAction {
     // Elements
     WriteOpen(String),
     WriteClose(String),
-    WriteVoid(String)
-
-    //CallTemplate(String),
-    //WriteElement(Element),
+    WriteVoid(String),
 }
-
-
-
 
 impl IntoWriteStmt for OutputAction {
     fn into_write_stmt<'cx>(&self, ecx: &'cx ExtCtxt, w: ast::Ident) -> ast::Stmt {
         match *self {
             OutputAction::Write(ref contents) => {
-                //let w_name =  w.name.to_string();
+                // let w_name =  w.name.to_string();
                 let stmt = quote_stmt!(ecx,
                     {
                         println!("Writing contents [{}] to ${}", $contents, "out");
