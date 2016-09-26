@@ -123,11 +123,6 @@ fn render_template() -> String {
 
 fn render_page(page: &mut String) {
     let mut js = String::new();
-    let mut rs = String::new();
-
-    // Populate js and rs variables
-    //    incr_template_gen!(&mut js, &mut rs, view root [ p [ "test" ] ]);
-    //    output_js_call!(&mut js, render_on_load root);
 
     // Render Rust and JS template
         let s = render_rust_and_js_template(&mut js);
@@ -136,7 +131,7 @@ fn render_page(page: &mut String) {
     // HTML template
         write!(page, "<html><head><title>incrust demo</title>");
         write!(page, script_src!("/assets/js/incremental-dom.js"));
-        write!(page, "</head><body><div id=\"root\">{}</div><div id=\"rust-code\">{}</div><div id=\"js-code\">{}</div></body></html>", s, rs, js);
+        write!(page, "</head><body><div id=\"root\">{}</div><div id=\"js-code\">{}</div></body></html>", s, js);
 
     // TODO: Renable this once the Rust output HTML and IncrementalDOM rendering match
         write!(page, "<script>{}</script>", js);
