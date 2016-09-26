@@ -101,6 +101,16 @@ macro_rules! incr_template {
     ]};
 }
 
+fn render_rust_and_js_template(js: &mut String) -> String {
+    emit_rust_and_js_template!(&mut js,
+        view root [
+            h1 [ {"Heading"}]
+
+            p [ {"testing"} ]
+        ]
+    )
+}
+
 fn render_template() -> String {
     emit_rust_template!(
         view root [
@@ -116,20 +126,20 @@ fn render_page(page: &mut String) {
     let mut rs = String::new();
 
     // Populate js and rs variables
-        incr_template_gen!(&mut js, &mut rs, view root [ p [ "test" ] ]);
-        output_js_call!(&mut js, render_on_load root);
+    //    incr_template_gen!(&mut js, &mut rs, view root [ p [ "test" ] ]);
+    //    output_js_call!(&mut js, render_on_load root);
+
+    // Render Rust and JS template
+        let s = render_rust_and_js_template(&mut js);
+        println!("Contents: [{}]", s);
 
     // HTML template
         write!(page, "<html><head><title>incrust demo</title>");
         write!(page, script_src!("/assets/js/incremental-dom.js"));
+        write!(page, "</head><body><div id=\"root\">{}</div><div id=\"rust-code\">{}</div><div id=\"js-code\">{}</div></body></html>", s, rs, js);
 
     // TODO: Renable this once the Rust output HTML and IncrementalDOM rendering match
-        // write!(page, "<script>{}</script>", js);
-
-    let s = render_template();
-    println!("Contents: [{}]", s);
-
-    write!(page, "</head><body><div id=\"root\">{}</div><div id=\"rust-code\">{}</div></body></html>", s, rs);
+        write!(page, "<script>{}</script>", js);
 }
 
 pub fn render() -> String {

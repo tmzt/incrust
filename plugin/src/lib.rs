@@ -32,6 +32,7 @@ use syntax::ptr::P;
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_macro("emit_rust_template", emit_rust_template);
+    reg.register_macro("emit_rust_and_js_template", emit_rust_and_js_template);
 }
 
 trait IntoViewItem {
@@ -197,6 +198,25 @@ impl IntoOutputActions for TemplateNode {
     }
 }
 
+impl IntoOutputActions for View {
+    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+        let name = &self.name;
+        let nodes = &self.nodes;
+
+        let w_ident = ecx.ident_of("out");
+        let mut stmts = Vec::new();
+
+        let out_stmt = quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap();
+        stmts.push(out_stmt);
+
+        let output_actions: Vec<OutputAction> = nodes.iter()
+            .flat_map(|node| node.into_output_actions(ecx))
+            .collect();
+
+        output_actions
+    }
+}
+
 impl IntoBlock for View {
     fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
         let name = &self.name;
@@ -319,18 +339,43 @@ fn create_template_block<'cx>(ecx: &'cx ExtCtxt, span: Span, views: Vec<View>) -
     MacEager::expr(ecx.expr_block(block))
 }
 
-fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>) -> Box<MacResult + 'cx> {
+fn parse_js_out_var<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
+    // Read js variable expression
+    let js_ident = try!(parser.parse_expr());
+    // Consume ,
+    try!(parser.expect(&token::Comma));
+
+    Ok(js_ident)
+}
+
+fn parse_into_output_actions<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> PResult<'a, Vec<OutputAction>> {
     match parse_view(ecx, parser, DUMMY_SP) {
         Ok(view) => {
-            let views = vec![view];
-            create_template_block(ecx, DUMMY_SP, views)
+            let output_actions = view.into_output_actions(ecx);
+            Ok(output_actions)
         },
 
         Err(mut err) => {
             err.emit();
-            DummyResult::expr(DUMMY_SP)
+            Err(err)
         }
     }
+}
+
+fn construct_js_function(view_name: String, output_actions: Vec<OutputAction>) -> &'static str {
+    ""
+}
+
+fn parse_emit_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>, js_ident: Option<P<ast::Expr>>) -> PResult<'a, Box<MacResult + 'cx>> {
+    let view = try!(parse_view(ecx, parser, DUMMY_SP));
+    let views = vec![view];
+
+    Ok(create_template_block(ecx, DUMMY_SP, views))
+}
+
+fn parse_emit_js_and_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> PResult<'a, Box<MacResult + 'cx>> {
+    let js_ident = try!(parse_js_out_var(ecx, parser));
+    parse_emit_rust_template(ecx, parser, Some(js_ident))
 }
 
 fn emit_rust_template<'cx>(
@@ -339,5 +384,20 @@ fn emit_rust_template<'cx>(
         tts: &[TokenTree]) -> Box<MacResult + 'cx> {
 
     let mut parser = ecx.new_parser_from_tts(tts);
-    parse_template(ecx, &mut parser)
+    match parse_emit_rust_template(ecx, &mut parser, None) {
+        Err(mut err) => { err.emit(); return DummyResult::expr(DUMMY_SP); },
+        Ok(result) => result
+    }
+}
+
+fn emit_rust_and_js_template<'cx>(
+        ecx: &'cx mut ExtCtxt,
+        span: Span,
+        tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+
+    let mut parser = ecx.new_parser_from_tts(tts);
+    match parse_emit_js_and_rust_template(ecx, &mut parser) {
+        Err(mut err) => { err.emit(); return DummyResult::expr(DUMMY_SP); },
+        Ok(result) => result
+    }
 }
