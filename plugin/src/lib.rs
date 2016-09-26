@@ -348,20 +348,6 @@ fn parse_js_out_var<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> 
     Ok(js_ident)
 }
 
-fn parse_into_output_actions<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>) -> PResult<'a, Vec<OutputAction>> {
-    match parse_view(ecx, parser, DUMMY_SP) {
-        Ok(view) => {
-            let output_actions = view.into_output_actions(ecx);
-            Ok(output_actions)
-        },
-
-        Err(mut err) => {
-            err.emit();
-            Err(err)
-        }
-    }
-}
-
 fn construct_js_function(view_name: String, output_actions: Vec<OutputAction>) -> &'static str {
     ""
 }
