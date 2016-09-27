@@ -113,9 +113,23 @@ macro_rules! parse_template {
 }
 */
 
-fn build_template() {
-    let template: CompiledView = parse_template!(view root [ ]);
-    println!("template: {:?}", template);
+fn render_template() -> String {
+    //let template: CompiledView = parse_template!(view root [ ]);
+    //println!("template: {:?}", template);
+
+    define_template! main {
+        view root [
+            h1 [ {"Heading"} ]
+
+            p [ {"testing"} ]
+        ]
+    }
+
+    {
+        let mut out = String::new();
+        emit_rust_view_main!(out);
+        out
+    }
 
     /*
     parse_template!(
@@ -153,11 +167,9 @@ fn render_template() -> String {
 fn render_page(page: &mut String) {
     let mut js = String::new();
 
-    build_template();
-
     // Render Rust and JS template
         //let s = render_rust_and_js_template(&mut js);
-        let s = "";
+        let s = render_template();
         println!("Contents: [{}]", s);
 
     // HTML template

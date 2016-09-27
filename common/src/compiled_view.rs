@@ -16,7 +16,7 @@ use output_actions::{OutputAction, IntoOutputActions};
 use IntoBlock;
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CompiledView {
     name: String,
     output_actions: Vec<OutputAction>

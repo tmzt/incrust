@@ -16,7 +16,7 @@ pub trait IntoOutputActions {
 
 /// Represents a type of action to perform when rendering
 #[ignore(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum OutputAction {
     // Text and computed values
     Write(String),

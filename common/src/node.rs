@@ -13,21 +13,21 @@ use jsgen::IntoJsOutputCall;
 use output_actions::{OutputAction, IntoOutputActions};
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Element {
     element_type: String,
     span: Span,
     nodes: Vec<TemplateNode>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TemplateExpr {
     span: Span,
     tokens: Vec<TokenTree>,
 }
 
 // Represents a parsed node in the template syntax
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TemplateNode {
     ElementNode(Element),
     ExprNode(TemplateExpr),
