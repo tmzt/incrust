@@ -14,12 +14,13 @@ use rustc_plugin::Registry;
 use std::fmt::Write;
 
 use std::rc::Rc;
+use std::marker::PhantomData;
 
 use syntax::abi::Abi;
 use syntax::ast::{self, DUMMY_NODE_ID};
 
 use syntax::codemap::{Span, Spanned, dummy_spanned, respan, spanned, DUMMY_SP};
-use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult, NormalTT, IdentTT, TTMacroExpander, Resolver};
+use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult, SyntaxExtension, NormalTT, IdentTT, TTMacroExpander, Resolver};
 use syntax::ext::build::AstBuilder;
 use syntax::ext::quote::rt::ToTokens;
 use syntax::ext::hygiene::Mark;
@@ -37,6 +38,7 @@ use itertools::Itertools;
 extern crate incrust_common;
 
 use incrust_common::codegen;
+use incrust_common::jsgen::{IntoJsFunction, IntoJsOutputCall};
 use incrust_common::node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
 use incrust_common::output_actions::{OutputAction, IntoOutputActions};
 use incrust_common::view::parse_view;
@@ -52,10 +54,98 @@ pub fn plugin_registrar(reg: &mut Registry) {
     //reg.register_macro("emit_rust_compiled_view", emit_rust_compiled_view);
 }
 
-#[derive(Clone)]
+fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
+    let ident = ecx.ident_of(name);
+    // TODO: This is changed to add_ext in b4906a (https://github.com/rust-lang/rust/commit/b4906a93)
+    (*ecx.resolver).add_macro(Mark::root(), ident, ext);
+}
+
+macro_rules! define_named_template {
+    ($ecx: ident, $name: ident, $ty:ident, $lang: expr, $views:expr) => ({
+        let name = $name.name.to_string();
+        let ext_name = &format!("emit_{}_view_{}", $lang, name);
+        let ext = LangSyntaxExt::<$ty>::create_template(&name, $views.clone());
+        define_ext($ecx, ext_name, Rc::new(NormalTT(Box::new(ext), None, true)));
+    })
+}
+
+#[derive(Debug, Clone)]
 struct NamedTemplateDecl {
     name: String,
     compiled_views: Vec<CompiledView>
+}
+
+enum Rust {}
+enum Js {}
+
+trait WriteBlockFactory {
+    fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
+}
+
+trait TargetLangSyntaxExt {}
+
+trait Lang {
+    fn ext() -> &'static str;
+}
+
+impl <L: Lang> LangSyntaxExt<L> {
+    fn create_template(name: &str, compiled_views: Vec<CompiledView>) -> LangSyntaxExt<L> {
+        let ext_name = &format!("emit_{}_view_{}", L::ext(), name);
+        let lang_ext = LangSyntaxExt {
+            decl: NamedTemplateDecl { name: String::from(name), compiled_views: compiled_views },
+            _l: PhantomData
+        };
+
+        lang_ext
+    }
+}
+
+#[derive(Debug, Clone)]
+struct LangSyntaxExt<L: Lang> {
+    decl: NamedTemplateDecl,
+    _l: PhantomData<L>
+}
+
+macro_rules! lang_expander {
+    ($lang: ty) => (
+        impl TTMacroExpander for LangSyntaxExt<$lang> {
+            fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+               // self.decl.expand(ecx, span, tts)
+                let mut parser = ecx.new_parser_from_tts(tts);
+                let w_ident = parser.parse_ident().unwrap();
+                self.create_write_block(ecx, w_ident)
+            }
+        }
+    )
+}
+lang_expander!(Rust);
+lang_expander!(Js);
+
+macro_rules! lang {
+    ($lang: ty, $ext: expr) => (
+        impl Lang for $lang {
+            fn ext() -> &'static str { $ext }
+        }
+    )
+}
+lang!(Rust, "rust");
+lang!(Js, "js");
+
+impl WriteBlockFactory for LangSyntaxExt<Rust> {
+    fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
+        codegen::create_template_write_block(ecx, w_ident, &self.decl.compiled_views)
+    }
+}
+
+impl WriteBlockFactory for LangSyntaxExt<Js> {
+    fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
+        let funcs: Vec<String> = self.decl.compiled_views.iter()
+            .map(|compiled_view| compiled_view.into_js_function(ecx))
+            .intersperse("; ".into())
+            .collect();
+
+        codegen::create_write_statements_block(ecx, w_ident, funcs.as_slice())
+    }
 }
 
 impl TTMacroExpander for NamedTemplateDecl {
@@ -65,14 +155,6 @@ impl TTMacroExpander for NamedTemplateDecl {
         //let w_ident = ecx.ident_of("out");
         codegen::create_template_write_block(ecx, w_ident, &self.compiled_views)
     }
-}
-
-fn define_named_template<'cx>(ecx: &'cx mut ExtCtxt, name: String, compiled_views: Vec<CompiledView>) {
-    let ext_name = &format!("emit_rust_view_{}", name);
-    let ident = ecx.ident_of(ext_name);
-    // TODO: This is changed to add_ext in b4906a (https://github.com/rust-lang/rust/commit/b4906a93)
-    (*ecx.resolver).add_macro(Mark::root(), ident,
-		Rc::new(NormalTT(Box::new(NamedTemplateDecl { name: name, compiled_views: compiled_views }), None, true)));
 }
 
 fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
@@ -138,12 +220,14 @@ fn parse_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree])
 
 fn expand_define_template<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
     let name = ident.name.to_string();
+    //let ident = ecx.ident_of(name.to_owned());
     let mut parser = ecx.new_parser_from_tts(&tts);
     //let tokens: Vec<TokenTree> = tts.into();
     match parse_template_into_compiled_view(ecx, span, &mut parser) {
         Ok(compiled_view) => {
             let compiled_views = vec![compiled_view];
-            define_named_template(ecx, name, compiled_views);
+            define_named_template!(ecx, ident, Rust, "rust", compiled_views);
+            define_named_template!(ecx, ident, Js, "js", compiled_views);
         },
 
         Err(mut err) => {

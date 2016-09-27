@@ -9,6 +9,8 @@ use syntax::parse::{token, PResult};
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
+use itertools::Itertools;
+
 use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
 use codegen::{IntoWriteStmt, IntoViewItem};
 use jsgen::{IntoJsFunction, IntoJsOutputCall};
@@ -96,6 +98,7 @@ impl IntoJsFunction for CompiledView {
 
         let js_stmts: Vec<String> = output_actions.iter()
             .map(|output_action| output_action.into_js_output_call())
+            .intersperse("; ".into())
             .collect();
         
         let js_body: String = js_stmts.join(" ");

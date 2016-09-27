@@ -67,3 +67,15 @@ pub fn create_template_write_block<'cx>(ecx: &'cx ExtCtxt,
 
     MacEager::expr(ecx.expr_block(block))
 }
+
+pub fn create_write_statements_block<'cx>(ecx: &'cx ExtCtxt, w_ident: ast::Ident, s: &[String]) -> Box<MacResult + 'cx> {
+    let write_stmts = s.iter()
+        .map(|s| {
+            quote_stmt!(ecx, {
+                write!($w_ident, "{}", $s).unwrap();
+            }).unwrap()
+        }).collect();
+
+    let block = ecx.block(DUMMY_SP, write_stmts);
+    MacEager::expr(ecx.expr_block(block))
+}

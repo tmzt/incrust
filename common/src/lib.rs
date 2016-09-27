@@ -7,6 +7,7 @@ extern crate log;
 extern crate syntax;
 extern crate rustc;
 extern crate rustc_plugin;
+extern crate itertools;
 
 use rustc_plugin::Registry;
 

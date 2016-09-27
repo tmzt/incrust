@@ -113,7 +113,7 @@ macro_rules! parse_template {
 }
 */
 
-fn render_template() -> String {
+fn render_template(js: &mut String) -> String {
     //let template: CompiledView = parse_template!(view root [ ]);
     //println!("template: {:?}", template);
 
@@ -125,11 +125,14 @@ fn render_template() -> String {
         ]
     }
 
+    emit_js_view_main!(js);
+
     {
         let mut out = String::new();
         emit_rust_view_main!(out);
         out
     }
+
 
     /*
     parse_template!(
@@ -168,17 +171,37 @@ fn render_page(page: &mut String) {
     let mut js = String::new();
 
     // Render Rust and JS template
-        //let s = render_rust_and_js_template(&mut js);
-        let s = render_template();
+        let s = render_template(&mut js);
         println!("Contents: [{}]", s);
 
     // HTML template
         write!(page, "<html><head><title>incrust demo</title>");
         write!(page, script_src!("/assets/js/incremental-dom.js"));
-        write!(page, "</head><body><div id=\"root\">{}</div><div id=\"js-code\">{}</div></body></html>", s, js);
 
     // TODO: Renable this once the Rust output HTML and IncrementalDOM rendering match
         write!(page, "<script>{}</script>", js);
+
+    // TODO: Remove the action link
+        write!(page, "<script>{}</script>", r"
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var root = document.querySelector('#root');
+                var data = {};
+                function startRendering() {
+                    setInterval(function() {
+                        console.log('Patching IncrementalDOM');
+                        IncrementalDOM.patch(root, render_view_root, data);
+                    }, 1000);
+                };
+
+                document.querySelector('#actions .render').addEventListener('click', function() { startRendering(); });
+            });");
+
+        write!(page, "</head><body>{}{}{}</body></html>", 
+            format!("<div id=\"root\">{}</div>", s),
+            format!("<br /><div id=\"js-code\"><code>{}</code></div>", js),
+            format!("<br /><div id=\"actions\"><a class=\"render\" href=\"#\">start rendering</a></div>"));
+
 }
 
 pub fn render() -> String {
