@@ -32,6 +32,7 @@ pub mod jsgen;
 pub mod node;
 pub mod view;
 pub mod output_actions;
+pub mod compiled_view;
 
 use codegen::{IntoWriteStmt, create_template_block};
 use jsgen::{IntoJsFunction, IntoJsOutputCall};

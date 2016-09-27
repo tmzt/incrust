@@ -1,10 +1,13 @@
 [package]
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
 name = "incrust_plugin"
 version = "0.1.0"
-authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
 
-[lib]
-plugin = true
+[dependencies]
+itertools = "0.5.0"
 
 [dependencies.incrust_common]
 path = "../common"
+
+[lib]
+plugin = true

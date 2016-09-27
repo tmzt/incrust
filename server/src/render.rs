@@ -1,6 +1,8 @@
 
 use std::fmt::Write;
 
+use incrust_common::compiled_view::CompiledView;
+
 /*
 macro_rules! js_args {
     ($w:expr, ) => (());
@@ -112,7 +114,7 @@ macro_rules! parse_template {
 */
 
 fn build_template() {
-    let template = parse_template!(view root [ ]);
+    let template: CompiledView = parse_template!(view root [ ]);
     println!("template: {:?}", template);
 
     /*

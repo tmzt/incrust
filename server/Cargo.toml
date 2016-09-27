@@ -1,22 +1,25 @@
 [package]
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
 name = "incrust_server_example"
 version = "0.1.0"
-authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
 
-[dependencies]
-nickel = "0.8.1"
-
-[dependencies.incrust_plugin]
-path = "../plugin"
-
-[dependencies.incrust_common]
-path = "../common"
+[build-dependencies]
 
 [build-dependencies.incrust_common]
+path = "../common"
+
+[build-dependencies.incrust_macros]
+path = "../macros"
+
+[dependencies]
+itertools = "0.5.0"
+nickel = "0.8.1"
+
+[dependencies.incrust_common]
 path = "../common"
 
 [dependencies.incrust_macros]
 path = "../macros"
 
-[build-dependencies.incrust_macros]
-path = "../macros"
+[dependencies.incrust_plugin]
+path = "../plugin"

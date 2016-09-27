@@ -1,4 +1,28 @@
 [root]
 name = "incrust_plugin"
 version = "0.1.0"
+dependencies = [
+ "incrust_common 0.1.0",
+ "itertools 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
+[[package]]
+name = "either"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "incrust_common"
+version = "0.1.0"
+
+[[package]]
+name = "itertools"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "either 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[metadata]
+"checksum either 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5845bf77d497f79416df39462df26d4a8b71dd6440246848ee63709476dbb9a6"
+"checksum itertools 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f6d3e8f5938c742382ff725948c1b16a1b05a86535bbea897214ddaf0a917093"

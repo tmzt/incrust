@@ -18,7 +18,13 @@ use IntoBlock;
 pub struct View {
     name: String,
     span: Span,
-    nodes: Vec<TemplateNode>,
+    nodes: Vec<TemplateNode>
+}
+
+impl View {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::Item> {

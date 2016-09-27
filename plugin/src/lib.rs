@@ -28,6 +28,9 @@ use syntax::parse::common::SeqSep;
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
+extern crate itertools;
+use itertools::Itertools;
+
 extern crate incrust_common;
 
 use incrust_common::codegen::create_template_block;
@@ -49,6 +52,7 @@ fn parse_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree])
     let mut parser = ecx.new_parser_from_tts(tts);
     match parse_view(ecx, &mut parser, span) {
         Ok(view) => {
+            // Convert view to output actions
             //let output_actions = view.into_output_actions(ecx);
             //ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
 
@@ -80,16 +84,28 @@ fn parse_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree])
             //DummyResult::expr(span)
 
             //let data = vec!["fake data", "extra"];
-            let data = vec![OutputAction::WriteOpen("h1".to_owned())];
-            let s: Vec<TokenTree> = data.iter().flat_map(|el| el.to_tokens(ecx)).collect();
+            let output_actions = vec![
+                OutputAction::WriteOpen("h1".to_owned()),
+                OutputAction::WriteClose("h1".to_owned())
+            ];
+            ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
 
-            let fake = quote_stmt!(ecx, {{
+            let s: Vec<TokenTree> = output_actions.iter()
+                .map(|el| el.to_tokens(ecx))
+                .intersperse(vec![TokenTree::Token(DUMMY_SP, token::Comma)])
+                .flat_map(|el| el.to_tokens(ecx))
+                .collect();
+
+            let name = view.name();
+            let s_name = quote_expr!(ecx, $name.to_owned());
+            let stmt = quote_stmt!(ecx, {{
                 extern crate incrust_common;
+                use incrust_common::compiled_view::CompiledView;
                 use incrust_common::output_actions::OutputAction;
-                let actions = vec![OutputAction::WriteOpen("h1".to_owned())];
-                actions
+                let actions = vec![$s];
+                CompiledView::from_output_actions($s_name, actions)
             }}).unwrap();
-            let block = ecx.block(span, vec![fake]);
+            let block = ecx.block(span, vec![stmt]);
             MacEager::expr(ecx.expr_block(block))
         },
 
