@@ -49,14 +49,12 @@ use incrust_common::compiled_view::CompiledView;
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_syntax_extension(token::intern("define_template"),
             syntax::ext::base::IdentTT(Box::new(expand_define_template), None, false));
-
-    reg.register_macro("parse_template", parse_template);
-    //reg.register_macro("emit_rust_compiled_view", emit_rust_compiled_view);
 }
 
 fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
     let ident = ecx.ident_of(name);
     // TODO: This is changed to add_ext in b4906a (https://github.com/rust-lang/rust/commit/b4906a93)
+    // update when updating nightly
     (*ecx.resolver).add_macro(Mark::root(), ident, ext);
 }
 
@@ -82,8 +80,6 @@ trait WriteBlockFactory {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
 }
 
-trait TargetLangSyntaxExt {}
-
 trait Lang {
     fn ext() -> &'static str;
 }
@@ -106,6 +102,7 @@ struct LangSyntaxExt<L: Lang> {
     _l: PhantomData<L>
 }
 
+/// Define TTMacroExpander for the given language, used the WriteBlockFactory trait above.
 macro_rules! lang_expander {
     ($lang: ty) => (
         impl TTMacroExpander for LangSyntaxExt<$lang> {
@@ -152,14 +149,12 @@ impl TTMacroExpander for NamedTemplateDecl {
     fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
         let mut parser = ecx.new_parser_from_tts(tts);
         let w_ident = parser.parse_ident().unwrap();
-        //let w_ident = ecx.ident_of("out");
         codegen::create_template_write_block(ecx, w_ident, &self.compiled_views)
     }
 }
 
 fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
                                                                             -> PResult<'a, CompiledView> {
-    //let tokens: Vec<TokenTree> = tts.into();
     let view = try!(parse_view(ecx, parser, span));
 
     let output_actions = vec![
@@ -175,11 +170,11 @@ fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span,
 
 fn parse_template_into_compiled_view_result<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
                                                                             -> PResult<'a, Box<MacResult + 'cx>> {
-    //let tokens: Vec<TokenTree> = tts.into();
     let view = try!(parse_view(ecx, parser, span));
 
     let output_actions = vec![
         OutputAction::WriteOpen("h1".to_owned()),
+        OutputAction::Write("testing".to_owned()),
         OutputAction::WriteClose("h1".to_owned())
     ];
     ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
@@ -202,67 +197,26 @@ fn parse_template_into_compiled_view_result<'cx, 'a>(ecx: &'cx mut ExtCtxt, span
         Ok(MacEager::expr(ecx.expr_block(block)))
 }
 
-fn parse_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree])
-                                        -> Box<MacResult + 'cx> {
-    let mut parser = ecx.new_parser_from_tts(tts);
-    //let tokens: Vec<TokenTree> = tts.into();
-    match parse_template_into_compiled_view_result(ecx, span, &mut parser) {
-        Ok(result) => {
-            result
-        },
-
-        Err(mut err) => {
-            err.emit();
-            DummyResult::expr(span)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-        }
-    }                                                                       
-}
-
+/// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
+/// which will render the parsed template in the given language.
 fn expand_define_template<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
     let name = ident.name.to_string();
-    //let ident = ecx.ident_of(name.to_owned());
     let mut parser = ecx.new_parser_from_tts(&tts);
-    //let tokens: Vec<TokenTree> = tts.into();
+
     match parse_template_into_compiled_view(ecx, span, &mut parser) {
         Ok(compiled_view) => {
             let compiled_views = vec![compiled_view];
             define_named_template!(ecx, ident, Rust, "rust", compiled_views);
             define_named_template!(ecx, ident, Js, "js", compiled_views);
+
+            // Empty (but must consist of items)
+            MacEager::items(SmallVector::zero())
         },
 
         Err(mut err) => {
             err.emit();
+            DummyResult::expr(span)
         }
     }
 
-    // Empty
-    //DummyResult::items(span)
-    MacEager::items(SmallVector::zero())
 }
-
-/*
-fn expand_rust_compiled_view<'s>(cx: &'s mut ExtCtxt, sp: codemap::Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 's> {
-    let source = match parse_arg(cx, &tts) {
-        Some(source) => source,
-        None => return DummyResult::any(sp),
-    };
-
-    expand_peg(cx, sp, ident, &source)
-}
-*/
-
-/*
-fn parse_rust_compiled_view_emit<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &Parser<'a>, span: Span, tts: &[TokenTree]) -> PResult<'a, Box<MacResult + 'cx>> {
-    let ident = try!(parser.parse_ident());
-    let 
-
-}
-
-fn emit_rust_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree])
-                                        -> Box<MacResult + 'cx> {
-    let mut parser = parse::new_parser_from_tts(tts);
-    let compiled_views = vec![compiled_view];
-
-    create_template_block(ecx, compiled_views)
-}
-*/
