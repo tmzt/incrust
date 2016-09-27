@@ -156,12 +156,7 @@ impl TTMacroExpander for NamedTemplateDecl {
 fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
                                                                             -> PResult<'a, CompiledView> {
     let view = try!(parse_view(ecx, parser, span));
-
-    let output_actions = vec![
-        OutputAction::WriteOpen("h1".to_owned()),
-        OutputAction::Write("testing".to_owned()),
-        OutputAction::WriteClose("h1".to_owned())
-    ];
+    let output_actions = view.into_output_actions(ecx);
     ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
 
     let name = String::from(view.name());
@@ -171,12 +166,8 @@ fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span,
 fn parse_template_into_compiled_view_result<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
                                                                             -> PResult<'a, Box<MacResult + 'cx>> {
     let view = try!(parse_view(ecx, parser, span));
+    let output_actions = view.into_output_actions(ecx);
 
-    let output_actions = vec![
-        OutputAction::WriteOpen("h1".to_owned()),
-        OutputAction::Write("testing".to_owned()),
-        OutputAction::WriteClose("h1".to_owned())
-    ];
     ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
         let s: Vec<TokenTree> = output_actions.iter()
             .map(|el| el.to_tokens(ecx))

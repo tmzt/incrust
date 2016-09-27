@@ -34,6 +34,10 @@ impl CompiledView {
     pub fn from_output_actions(name: String, output_actions: Vec<OutputAction>) -> CompiledView {
         CompiledView { name: name, output_actions: output_actions }
     }
+
+    pub fn output_actions(&self) -> &[OutputAction] {
+        self.output_actions.as_slice()
+    }
 }
 
 fn create_view_item<'cx>(ecx: &'cx ExtCtxt, compiled_view: &CompiledView) -> P<ast::Item> {
