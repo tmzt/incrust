@@ -6,4 +6,5 @@ authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
 [lib]
 plugin = true
 
-[dependencies]
+[dependencies.incrust_common]
+path = "../common"

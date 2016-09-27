@@ -2,7 +2,7 @@
 name = "incrust_server_example"
 version = "0.1.0"
 dependencies = [
- "incrust_codegen 0.1.0",
+ "incrust_common 0.1.0",
  "incrust_macros 0.1.0",
  "incrust_plugin 0.1.0",
  "nickel 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -74,7 +74,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "incrust_codegen"
+name = "incrust_common"
 version = "0.1.0"
 
 [[package]]
@@ -84,6 +84,9 @@ version = "0.1.0"
 [[package]]
 name = "incrust_plugin"
 version = "0.1.0"
+dependencies = [
+ "incrust_common 0.1.0",
+]
 
 [[package]]
 name = "kernel32-sys"

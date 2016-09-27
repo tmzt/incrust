@@ -1,30 +1,33 @@
 
 use syntax::ast;
 use syntax::tokenstream::TokenTree;
-use syntax::codemap::{Span, Spanned, dummy_spanned, respan, spanned, DUMMY_SP};
-use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult};
+use syntax::codemap::{Span, DUMMY_SP};
+use syntax::ext::base::ExtCtxt;
 use syntax::print::pprust::{token_to_string, tts_to_string};
 use syntax::parse::{token, PResult};
-use syntax::parse::common::SeqSep;
 use syntax::parse::parser::Parser;
-use syntax::ptr::P;
+use syntax::parse::common::SeqSep;
 
 use codegen::IntoWriteStmt;
+use jsgen::IntoJsOutputCall;
 use output_actions::{OutputAction, IntoOutputActions};
 
 
+#[derive(Debug)]
 pub struct Element {
     element_type: String,
     span: Span,
     nodes: Vec<TemplateNode>,
 }
 
+#[derive(Debug)]
 pub struct TemplateExpr {
     span: Span,
     tokens: Vec<TokenTree>,
 }
 
 // Represents a parsed node in the template syntax
+#[derive(Debug)]
 pub enum TemplateNode {
     ElementNode(Element),
     ExprNode(TemplateExpr),
@@ -67,6 +70,13 @@ impl IntoWriteStmt for TemplateExpr {
             }).unwrap();
 
         stmt
+    }
+}
+
+impl IntoJsOutputCall for TemplateExpr {
+    fn into_js_output_call(&self) -> String {
+        let contents = tts_to_string(&self.tokens);
+        format!("IncrementalDOM.text('{}')", contents)
     }
 }
 

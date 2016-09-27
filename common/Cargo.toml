@@ -1,0 +1,6 @@
+[package]
+name = "incrust_common"
+version = "0.1.0"
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
+
+[dependencies]

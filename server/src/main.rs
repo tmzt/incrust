@@ -7,6 +7,8 @@ extern crate nickel;
 #[macro_use]
 extern crate incrust_macros;
 
+extern crate incrust_common;
+
 mod render;
 
 use nickel::{ Nickel, HttpRouter, StaticFilesHandler };

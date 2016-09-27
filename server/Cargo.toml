@@ -9,8 +9,11 @@ nickel = "0.8.1"
 [dependencies.incrust_plugin]
 path = "../plugin"
 
-[build-dependencies.incrust_codegen]
-path = "../codegen"
+[dependencies.incrust_common]
+path = "../common"
+
+[build-dependencies.incrust_common]
+path = "../common"
 
 [dependencies.incrust_macros]
 path = "../macros"

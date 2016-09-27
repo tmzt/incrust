@@ -101,6 +101,32 @@ macro_rules! incr_template {
     ]};
 }
 
+/*
+macro_rules! parse_template {
+    ($($inner:tt)*) => ({
+        extern crate incrust_common;
+        use incrust_common::{Template, tts_to_template};
+        Template::from_views(vec![])
+    })
+}
+*/
+
+fn build_template() {
+    let template = parse_template!(view root [ ]);
+    println!("template: {:?}", template);
+
+    /*
+    parse_template!(
+        view root [
+            h1 [ {"Heading"}]
+
+            p [ {"testing"} ]
+        ]
+    )
+    */
+}
+
+/*
 fn render_rust_and_js_template(js: &mut String) -> String {
     emit_rust_and_js_template!(&mut js,
         view root [
@@ -120,12 +146,16 @@ fn render_template() -> String {
         ]
     )
 }
+*/
 
 fn render_page(page: &mut String) {
     let mut js = String::new();
 
+    build_template();
+
     // Render Rust and JS template
-        let s = render_rust_and_js_template(&mut js);
+        //let s = render_rust_and_js_template(&mut js);
+        let s = "";
         println!("Contents: [{}]", s);
 
     // HTML template

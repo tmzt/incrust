@@ -1,16 +1,22 @@
 
 use syntax::ast;
+use syntax::parse::token;
 use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult};
+use syntax::ext::quote::rt::ToTokens;
+use syntax::tokenstream::TokenTree;
 
 use node::TemplateExpr;
 use codegen::IntoWriteStmt;
+use jsgen::{IntoJsFunction, IntoJsOutputCall};
 
 
 pub trait IntoOutputActions {
     fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction>;
 }
 
-// Represents a type of action to perform when rendering
+/// Represents a type of action to perform when rendering
+#[ignore(dead_code)]
+#[derive(Debug)]
 pub enum OutputAction {
     // Text and computed values
     Write(String),
@@ -20,6 +26,37 @@ pub enum OutputAction {
     WriteOpen(String),
     WriteClose(String),
     WriteVoid(String),
+}
+
+impl ToTokens for OutputAction {
+    fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
+        let act = match *self {
+            OutputAction::Write(ref contents) => {
+                let s = quote_expr!(ecx, $contents.to_owned());
+                quote_expr!(ecx, OutputAction::Write($s))
+            },
+
+            OutputAction::WriteResult(ref template_expr) => {
+                quote_expr!(ecx, OutputAction::WriteResult(TemplateExpr("")))
+            },
+
+            OutputAction::WriteOpen(ref element_type) => {
+                let s = quote_expr!(ecx, $element_type.to_owned());
+                quote_expr!(ecx, OutputAction::WriteOpen($s))
+            },
+
+            OutputAction::WriteClose(ref element_type) => {
+                let s = quote_expr!(ecx, $element_type.to_owned());
+                quote_expr!(ecx, OutputAction::WriteClose($s))
+            },
+
+            OutputAction::WriteVoid(ref element_type) => {
+                let s = quote_expr!(ecx, $element_type.to_owned());
+                quote_expr!(ecx, OutputAction::WriteVoid($s))
+            }
+        };
+        act.to_tokens(ecx)
+    }
 }
 
 impl IntoWriteStmt for OutputAction {
@@ -79,6 +116,33 @@ impl IntoWriteStmt for OutputAction {
 
                 stmt
             }            
+        }
+    }
+}
+
+impl IntoJsOutputCall for OutputAction {
+    fn into_js_output_call(&self) -> String {
+        match *self {
+            OutputAction::Write(ref contents) => {
+                format!("IncrementalDOM.text('{}')", contents)
+            },
+
+            // For now, write the expression as a string
+            OutputAction::WriteResult(ref template_expr) => {
+                template_expr.into_js_output_call()
+            },
+
+            OutputAction::WriteOpen(ref element_type) => {
+                format!("IncrementalDOM.elementOpen('{}')", element_type)
+            },
+
+            OutputAction::WriteClose(ref element_type) => {
+                format!("IncrementalDOM.elementClose('{}')", element_type)
+            },
+
+            OutputAction::WriteVoid(ref element_type) => {
+                format!("IncrementalDOM.elementVoid('{}')", element_type)
+            }
         }
     }
 }

@@ -28,147 +28,76 @@ use syntax::parse::common::SeqSep;
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
-mod codegen;
-mod node;
-mod output_actions;
+extern crate incrust_common;
 
-use codegen::IntoWriteStmt;
-use output_actions::{OutputAction, IntoOutputActions};
-use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
+use incrust_common::codegen::create_template_block;
+use incrust_common::node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
+use incrust_common::output_actions::{OutputAction, IntoOutputActions};
+use incrust_common::view::parse_view;
 
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
+    reg.register_macro("parse_template", parse_template);
     reg.register_macro("emit_rust_template", emit_rust_template);
     reg.register_macro("emit_rust_and_js_template", emit_rust_and_js_template);
 }
 
-trait IntoViewItem {
-    fn into_view_item<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Item>;
-}
+fn parse_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree])
+                                        -> Box<MacResult + 'cx> {
+    //let tokens: Vec<TokenTree> = tts.into();
+    let mut parser = ecx.new_parser_from_tts(tts);
+    match parse_view(ecx, &mut parser, span) {
+        Ok(view) => {
+            //let output_actions = view.into_output_actions(ecx);
+            //ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
 
-trait IntoBlock {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block>;
-}
+            //ecx.span_warn(span, format!("output_actions: {:?}", output_actions.iter().map(|a| format!("{:?}", a)).join(", ".into()).collect()));
 
-struct View {
-    name: String,
-    span: Span,
-    nodes: Vec<TemplateNode>,
-}
+            /*
+            let quoted = quote_stmt!(ecx, {
+                extern crate incrust_common;
+                use incrust_common::output_actions::OutputAction;
+                
+                let actions = vec![OutputAction::WriteOpen(String::new("h1"))];
+                ""
+            }).unwrap();
+            */
 
-impl IntoViewItem for View {
-    fn into_view_item<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Item> {
-        create_view_item(ecx, self.span, &self)
+
+            /*
+            let stmt = quote_stmt!(ecx, {
+                extern crate incrust_common;
+                use incrust_common::view::View;
+                use incrust_common::Template;
+
+                let view = View::from_output_actions($quoted)
+                Template::from_views(vec![view])
+            }).unwrap();
+            */
+            //let block = ecx.block(span, vec![quoted]);
+            //MacEager::expr(ecx.expr_block(block))
+            //DummyResult::expr(span)
+
+            //let data = vec!["fake data", "extra"];
+            let data = vec![OutputAction::WriteOpen("h1".to_owned())];
+            let s: Vec<TokenTree> = data.iter().flat_map(|el| el.to_tokens(ecx)).collect();
+
+            let fake = quote_stmt!(ecx, {{
+                extern crate incrust_common;
+                use incrust_common::output_actions::OutputAction;
+                let actions = vec![OutputAction::WriteOpen("h1".to_owned())];
+                actions
+            }}).unwrap();
+            let block = ecx.block(span, vec![fake]);
+            MacEager::expr(ecx.expr_block(block))
+        },
+
+        Err(mut err) => {
+            err.emit();
+            DummyResult::expr(span)
+        }
     }
-}
-
-
-impl IntoOutputActions for View {
-    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-        let name = &self.name;
-        let nodes = &self.nodes;
-
-        let w_ident = ecx.ident_of("out");
-        let mut stmts = Vec::new();
-
-        let out_stmt = quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap();
-        stmts.push(out_stmt);
-
-        let output_actions: Vec<OutputAction> = nodes.iter()
-            .flat_map(|node| node.into_output_actions(ecx))
-            .collect();
-
-        output_actions
-    }
-}
-
-impl IntoBlock for View {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-        let name = &self.name;
-        let nodes = &self.nodes;
-
-        let w_ident = ecx.ident_of("out");
-        let mut stmts = Vec::new();
-
-        let out_stmt = quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap();
-        stmts.push(out_stmt);
-
-        let write_stmts: Vec<ast::Stmt> = nodes.iter()
-            .flat_map(|node| node.into_output_actions(ecx))
-            .map(|output_action| output_action.into_write_stmt(ecx, w_ident))
-            .collect();
-        stmts.extend(write_stmts);
-
-        // Return rendered string for now
-        stmts.push(quote_stmt!(ecx, $w_ident).unwrap());
-
-        ecx.block(self.span, stmts)
-    }
-}
-
-fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt,
-                       parser: &mut Parser<'a>,
-                       span: Span)
-                       -> PResult<'a, View> {
-    let view_token = parser.parse_ident().unwrap();
-    let view_name = parser.parse_ident().unwrap();
-
-    try!(parser.expect(&token::OpenDelim(token::Bracket)));
-
-    let nodes = try!(parse_contents(ecx, parser, span));
-
-    Ok(View {
-        name: view_name.name.to_string(),
-        span: span,
-        nodes: nodes,
-    })
-}
-
-fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::Item> {
-    let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
-    let block = view.into_block(ecx);
-
-    let inputs = vec![];
-    let ret_ty = quote_ty!(ecx, String);
-    ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
-}
-
-fn create_template_block<'cx>(ecx: &'cx ExtCtxt,
-                              span: Span,
-                              views: Vec<View>)
-                              -> Box<MacResult + 'cx> {
-    let view_item_stmts: Vec<ast::Stmt> = views.iter()
-        .map(|view| view.into_view_item(ecx))
-        .map(|item| ecx.stmt_item(span, item))
-        .collect();
-
-    let mut stmts = Vec::new();
-    stmts.extend(view_item_stmts);
-
-    let name = ecx.ident_of("rusttemplate_view_root");
-    let args = vec![];
-    let call_expr = ecx.expr_call_ident(span, name, args);
-    stmts.push(ecx.stmt_expr(call_expr));
-
-    let block = ecx.block(span, stmts);
-
-    MacEager::expr(ecx.expr_block(block))
-}
-
-fn parse_js_out_var<'cx, 'a>(ecx: &'cx mut ExtCtxt,
-                             parser: &mut Parser<'a>)
-                             -> PResult<'a, P<ast::Expr>> {
-    // Read js variable expression
-    let js_ident = try!(parser.parse_expr());
-    // Consume ,
-    try!(parser.expect(&token::Comma));
-
-    Ok(js_ident)
-}
-
-fn construct_js_function(view_name: String, output_actions: Vec<OutputAction>) -> &'static str {
-    ""
 }
 
 fn parse_emit_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt,
@@ -179,6 +108,17 @@ fn parse_emit_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt,
     let views = vec![view];
 
     Ok(create_template_block(ecx, DUMMY_SP, views))
+}
+
+pub fn parse_js_out_var<'cx, 'a>(ecx: &'cx mut ExtCtxt,
+                             parser: &mut Parser<'a>)
+                             -> PResult<'a, P<ast::Expr>> {
+    // Read js variable expression
+    let js_ident = try!(parser.parse_expr());
+    // Consume ,
+    try!(parser.expect(&token::Comma));
+
+    Ok(js_ident)
 }
 
 fn parse_emit_js_and_rust_template<'cx, 'a>(ecx: &'cx mut ExtCtxt,
