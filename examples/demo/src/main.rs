@@ -1,5 +1,6 @@
 #![feature(plugin)]
-#![plugin(incrust_plugin)]
+#![plugin(incrust_plugin)] extern crate incrust_plugin;
+
 
 #[macro_use]
 extern crate nickel;

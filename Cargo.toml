@@ -4,7 +4,37 @@ name = "src-incrust"
 version = "0.1.0"
 
 [dependencies]
-nickel = "0.8.1"
+itertools = "0.5.0"
+nickel = "0.9.0"
+
+[lib]
+name = "incrust_plugin"
+path = "./plugin/src/lib.rs"
+plugin = true
+
+[dependencies.incrust_common]
+path = "./common"
+
+[dev-dependencies.incrust_common]
+path = "./common"
+
+[dependencies.incrust_plugin]
+path = "./plugin"
+
+[dev-dependencies.incrust_plugin]
+path = "./plugin"
+
+[dependencies.incrust_macros]
+path = "./macros"
+
+[dev-dependencies.incrust_macros]
+path = "./macros"
+
+
+
+[[example]]
+name = "demo"
+path = "./examples/demo/src/main.rs"
 
 [workspace]
-members = ["plugin", "server", "codegen", "macros"]
+members = ["common", "plugin", "codegen", "macros", "examples/demo"]

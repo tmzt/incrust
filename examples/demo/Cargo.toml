@@ -6,20 +6,19 @@ version = "0.1.0"
 [build-dependencies]
 
 [build-dependencies.incrust_common]
-path = "../common"
+path = "../../common"
 
 [build-dependencies.incrust_macros]
-path = "../macros"
+path = "../../macros"
 
 [dependencies]
-itertools = "0.5.0"
 nickel = "0.8.1"
 
 [dependencies.incrust_common]
-path = "../common"
+path = "../../common"
 
 [dependencies.incrust_macros]
-path = "../macros"
+path = "../../macros"
 
 [dependencies.incrust_plugin]
-path = "../plugin"
+path = "../../plugin"

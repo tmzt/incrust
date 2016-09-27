@@ -2,7 +2,11 @@
 name = "src-incrust"
 version = "0.1.0"
 dependencies = [
- "nickel 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "incrust_common 0.1.0",
+ "incrust_macros 0.1.0",
+ "incrust_plugin 0.1.0",
+ "itertools 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nickel 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -21,6 +25,11 @@ dependencies = [
  "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "either"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "groupable"
@@ -61,6 +70,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper"
+version = "0.9.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cookie 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "httparse 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "language-tags 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mime 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num_cpus 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "solicit 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",
+ "traitobject 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typeable 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "unicase 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "url 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "idna"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -75,21 +104,40 @@ name = "incrust_codegen"
 version = "0.1.0"
 
 [[package]]
+name = "incrust_common"
+version = "0.1.0"
+dependencies = [
+ "itertools 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "incrust_macros"
 version = "0.1.0"
 
 [[package]]
 name = "incrust_plugin"
 version = "0.1.0"
+dependencies = [
+ "incrust_common 0.1.0",
+ "itertools 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "incrust_server_example"
 version = "0.1.0"
 dependencies = [
- "incrust_codegen 0.1.0",
+ "incrust_common 0.1.0",
  "incrust_macros 0.1.0",
  "incrust_plugin 0.1.0",
  "nickel 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "itertools"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "either 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -173,6 +221,25 @@ dependencies = [
  "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",
  "typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 0.5.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "nickel"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "groupable 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "modifier 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mustache 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "plugin 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 0.1.77 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",
+ "typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "url 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -369,11 +436,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum aho-corasick 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ca972c2ea5f742bfce5687b9aef75506a764f61d37f8f649047846a9686ddb66"
 "checksum cookie 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "0e3d6405328b6edb412158b3b7710e2634e23f3614b9bb1c412df7952489a626"
+"checksum either 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5845bf77d497f79416df39462df26d4a8b71dd6440246848ee63709476dbb9a6"
 "checksum groupable 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "32619942b8be646939eaf3db0602b39f5229b74575b67efc897811ded1db4e57"
 "checksum hpack 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3d2da7d3a34cf6406d9d700111b8eafafe9a251de41ae71d8052748259343b58"
 "checksum httparse 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "46534074dbb80b070d60a5cb8ecadd8963a00a438ae1a95268850a7ef73b67ae"
 "checksum hyper 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "bb0f4d00bb781e559b6e66ae4b5479df0fdf9ab15949f52fa2f1f5de16d4cc07"
+"checksum hyper 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)" = "eb27e8a3e8f17ac43ffa41bbda9cf5ad3f9f13ef66fa4873409d4902310275f7"
 "checksum idna 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1053236e00ce4f668aeca4a769a09b3bf5a682d802abd6f3cb39374f6b162c11"
+"checksum itertools 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f6d3e8f5938c742382ff725948c1b16a1b05a86535bbea897214ddaf0a917093"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum language-tags 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "a91d884b6667cd606bb5a69aa0c99ba811a115fc68915e7056ec08a46e93199a"
 "checksum lazy_static 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "cf186d1a8aa5f5bee5fd662bc9c1b949e0259e1bcc379d1f006847b0080c7417"
@@ -385,6 +455,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum modifier 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "41f5c9112cb662acd3b204077e0de5bc66305fa8df65c8019d5adb10e9ab6e58"
 "checksum mustache 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "f2fac05c29a9b1fe86c828ec974d6f027679576711a246711c476e548bf7d741"
 "checksum nickel 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e1f0a8fcf0538d013715662f571aeeaa124592eae35226f8ddf2adb98f5df98b"
+"checksum nickel 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "14bdda46396b6447ae5f22b74296cb517d5c4659f31e3cfb5351bdd8e129791d"
 "checksum num_cpus 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)" = "cee7e88156f3f9e19bdd598f8d6c9db7bf4078f99f8381f43a55b09648d1a6e3"
 "checksum plugin 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "1a6a0dc3910bc8db877ffed8e457763b317cf880df4ae19109b9f77d277cf6e0"
 "checksum rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)" = "2791d88c6defac799c3f20d74f094ca33b9332612d9aef9078519c82e4fe04a5"
