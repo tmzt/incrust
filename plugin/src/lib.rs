@@ -11,26 +11,17 @@ extern crate rustc_plugin;
 
 use rustc_plugin::Registry;
 
-use std::fmt::Write;
-
 use std::rc::Rc;
 use std::marker::PhantomData;
 
-use syntax::abi::Abi;
-use syntax::ast::{self, DUMMY_NODE_ID};
-
-use syntax::codemap::{Span, Spanned, dummy_spanned, respan, spanned, DUMMY_SP};
-use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult, SyntaxExtension, NormalTT, IdentTT, TTMacroExpander, Resolver};
-use syntax::ext::build::AstBuilder;
-use syntax::ext::quote::rt::ToTokens;
+use syntax::ast;
+use syntax::codemap::Span;
+use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult, SyntaxExtension, NormalTT, TTMacroExpander};
 use syntax::ext::hygiene::Mark;
-use syntax::print::pprust::{token_to_string, tts_to_string};
 use syntax::tokenstream::TokenTree;
 use syntax::util::small_vector::SmallVector;
 use syntax::parse::{token, PResult};
-use syntax::parse::common::SeqSep;
 use syntax::parse::parser::Parser;
-use syntax::ptr::P;
 
 extern crate itertools;
 use itertools::Itertools;
@@ -38,9 +29,8 @@ use itertools::Itertools;
 extern crate incrust_common;
 
 use incrust_common::codegen;
-use incrust_common::jsgen::{IntoJsFunction, IntoJsOutputCall};
-use incrust_common::node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
-use incrust_common::output_actions::{OutputAction, IntoOutputActions};
+use incrust_common::jsgen::IntoJsFunction;
+use incrust_common::output_actions::IntoOutputActions;
 use incrust_common::view::parse_view;
 use incrust_common::compiled_view::CompiledView;
 
@@ -86,7 +76,6 @@ trait Lang {
 
 impl <L: Lang> LangSyntaxExt<L> {
     fn create_template(name: &str, compiled_views: Vec<CompiledView>) -> LangSyntaxExt<L> {
-        let ext_name = &format!("emit_{}_view_{}", L::ext(), name);
         let lang_ext = LangSyntaxExt {
             decl: NamedTemplateDecl { name: String::from(name), compiled_views: compiled_views },
             _l: PhantomData
@@ -106,7 +95,7 @@ struct LangSyntaxExt<L: Lang> {
 macro_rules! lang_expander {
     ($lang: ty) => (
         impl TTMacroExpander for LangSyntaxExt<$lang> {
-            fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+            fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
                // self.decl.expand(ecx, span, tts)
                 let mut parser = ecx.new_parser_from_tts(tts);
                 let w_ident = parser.parse_ident().unwrap();
@@ -146,7 +135,7 @@ impl WriteBlockFactory for LangSyntaxExt<Js> {
 }
 
 impl TTMacroExpander for NamedTemplateDecl {
-    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
         let mut parser = ecx.new_parser_from_tts(tts);
         let w_ident = parser.parse_ident().unwrap();
         codegen::create_template_write_block(ecx, w_ident, &self.compiled_views)
@@ -163,35 +152,9 @@ fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span,
     Ok(CompiledView::from_output_actions(name, output_actions))
 }
 
-fn parse_template_into_compiled_view_result<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
-                                                                            -> PResult<'a, Box<MacResult + 'cx>> {
-    let view = try!(parse_view(ecx, parser, span));
-    let output_actions = view.into_output_actions(ecx);
-
-    ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
-        let s: Vec<TokenTree> = output_actions.iter()
-            .map(|el| el.to_tokens(ecx))
-            .intersperse(vec![TokenTree::Token(DUMMY_SP, token::Comma)])
-            .flat_map(|el| el.to_tokens(ecx))
-            .collect();
-
-        let name = view.name();
-        let s_name = quote_expr!(ecx, $name.to_owned());
-        let stmt = quote_stmt!(ecx, {{
-            extern crate incrust_common;
-            use incrust_common::compiled_view::CompiledView;
-            use incrust_common::output_actions::OutputAction;
-            let actions = vec![$s];
-            CompiledView::from_output_actions($s_name, actions)
-        }}).unwrap();
-        let block = ecx.block(span, vec![stmt]);
-        Ok(MacEager::expr(ecx.expr_block(block)))
-}
-
 /// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
 /// which will render the parsed template in the given language.
 fn expand_define_template<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
-    let name = ident.name.to_string();
     let mut parser = ecx.new_parser_from_tts(&tts);
 
     match parse_template_into_compiled_view(ecx, span, &mut parser) {
