@@ -29,6 +29,7 @@ It will also be possible to generate TypeScript interface files and <em>*.d.ts</
 
 1. Checkout this repo into a directory
 2. *cd* into that directory
-3. Execute *cargo run --example demo*
+3. Execute *npm install* to get incremental-dom.js
+4. Execute *cargo run --example demo*
 
 Then visit http://127.0.0.1:6767/ or the URL shown at the command prompt!
