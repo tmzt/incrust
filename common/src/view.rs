@@ -14,7 +14,7 @@ use output_actions::{OutputAction, IntoOutputActions};
 use IntoBlock;
 
 
-
+#[derive(Debug)]
 pub struct View {
     name: String,
     span: Span,
