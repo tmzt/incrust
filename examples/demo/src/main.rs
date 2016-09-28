@@ -11,6 +11,7 @@ extern crate incrust_macros;
 extern crate incrust_common;
 
 mod render;
+mod templates;
 
 use nickel::{ Nickel, HttpRouter, StaticFilesHandler };
 use render::render;
