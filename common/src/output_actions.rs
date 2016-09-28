@@ -3,6 +3,7 @@ use syntax::ast;
 use syntax::parse::token;
 use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult};
 use syntax::ext::quote::rt::ToTokens;
+use syntax::print::pprust::tts_to_string;
 use syntax::tokenstream::TokenTree;
 
 use node::TemplateExpr;
@@ -37,7 +38,8 @@ impl ToTokens for OutputAction {
             },
 
             OutputAction::WriteResult(ref template_expr) => {
-                quote_expr!(ecx, OutputAction::WriteResult(TemplateExpr("")))
+                let s = tts_to_string(template_expr.to_tokens(ecx).as_slice());
+                quote_expr!(ecx, OutputAction::WriteResult(TemplateExpr($s)))
             },
 
             OutputAction::WriteOpen(ref element_type) => {

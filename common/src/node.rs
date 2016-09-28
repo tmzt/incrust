@@ -3,10 +3,12 @@ use syntax::ast;
 use syntax::tokenstream::TokenTree;
 use syntax::codemap::{Span, DUMMY_SP};
 use syntax::ext::base::ExtCtxt;
+use syntax::ext::quote::rt::ToTokens;
 use syntax::print::pprust::{token_to_string, tts_to_string};
 use syntax::parse::{token, PResult};
 use syntax::parse::parser::Parser;
 use syntax::parse::common::SeqSep;
+use syntax::ptr::P;
 
 use codegen::IntoWriteStmt;
 use jsgen::IntoJsOutputCall;
@@ -26,11 +28,48 @@ pub struct TemplateExpr {
     tokens: Vec<TokenTree>,
 }
 
+impl ToTokens for TemplateExpr {
+    fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
+        Vec::from(self.tokens.as_slice())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TemplateLiteral {
+    span: Span,
+    val: LitValue
+}
+
+#[derive(Clone, Debug)]
+pub enum LitValue {
+    LitString(String)
+}
+
+impl ToTokens for TemplateLiteral {
+    fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
+        Vec::from(self.val.to_tokens(ecx).as_slice())
+    }
+}
+
+impl ToTokens for LitValue {
+    fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
+        let val = match *self {
+            LitValue::LitString(ref contents) => {
+                let s = quote_expr!(ecx, $contents.to_owned());
+                quote_expr!(ecx, OutputAction::Write($s))
+            }
+        };
+
+        val.to_tokens(ecx)
+    }
+}
+
 // Represents a parsed node in the template syntax
 #[derive(Clone, Debug)]
 pub enum TemplateNode {
     ElementNode(Element),
     ExprNode(TemplateExpr),
+    LiteralNode(TemplateLiteral),
 }
 
 impl IntoOutputActions for Element {
@@ -54,9 +93,17 @@ impl IntoOutputActions for Element {
 
 impl IntoOutputActions for TemplateExpr {
     fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-        // For now, output the element as a token string
-        let contents = tts_to_string(&self.tokens);
-        vec![OutputAction::Write(contents)]
+        vec![OutputAction::WriteResult(self.clone())]
+    }
+}
+
+impl IntoOutputActions for TemplateLiteral {
+    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+        match self.val {
+            LitValue::LitString(ref contents) => {
+                vec![OutputAction::Write(contents.to_owned())]
+            }
+        }
     }
 }
 
@@ -76,7 +123,8 @@ impl IntoWriteStmt for TemplateExpr {
 impl IntoJsOutputCall for TemplateExpr {
     fn into_js_output_call(&self) -> String {
         let contents = tts_to_string(&self.tokens);
-        format!("IncrementalDOM.text('{}')", contents)
+        // TODO: Handle evaluating this better
+        format!("IncrementalDOM.text({})", contents)
     }
 }
 
@@ -85,6 +133,7 @@ impl IntoOutputActions for TemplateNode {
         match self {
             &TemplateNode::ElementNode(ref element) => element.into_output_actions(ecx),
             &TemplateNode::ExprNode(ref template_expr) => template_expr.into_output_actions(ecx),
+            &TemplateNode::LiteralNode(ref template_literal) => template_literal.into_output_actions(ecx),
         }
     }
 }
@@ -105,6 +154,7 @@ pub fn parse_element<'cx, 'a>(ecx: &'cx ExtCtxt,
     })
 }
 
+// TODO: Rename to indicate this handles literals as well
 pub fn parse_template_expr<'a>(parser: &mut Parser<'a>, span: Span) -> PResult<'a, TemplateExpr> {
     try!(parser.expect(&token::OpenDelim(token::Brace)));
 
@@ -119,6 +169,31 @@ pub fn parse_template_expr<'a>(parser: &mut Parser<'a>, span: Span) -> PResult<'
     })
 }
 
+pub fn parse_expr_or_lit<'cx, 'a>(ecx: &'cx ExtCtxt,
+                           mut parser: &mut Parser<'a>,
+                           span: Span)
+                           -> PResult<'a, TemplateNode> {
+    match &parser.token {
+        &token::OpenDelim(token::Paren) => {
+            let expr = try!(parser.parse_expr());
+            parser.bump();
+
+            let tokens = expr.to_tokens(ecx);
+            return Ok(TemplateNode::ExprNode(TemplateExpr { span: span, tokens: tokens }));
+        },
+
+        // Otherwise, assume we have a literal expr
+        _ => {
+            //let expr = try!(parser.parse_expr());
+            let (str_, _) = try!(parser.parse_str());
+            parser.bump();
+
+            let s = String::from(str_.to_string());
+            return Ok(TemplateNode::LiteralNode(TemplateLiteral { span: span, val: LitValue::LitString(s) }));
+        }
+    }
+}
+
 pub fn parse_node<'cx, 'a>(ecx: &'cx ExtCtxt,
                            mut parser: &mut Parser<'a>,
                            span: Span)
@@ -126,16 +201,18 @@ pub fn parse_node<'cx, 'a>(ecx: &'cx ExtCtxt,
     let is_open = parser.token == token::OpenDelim(token::Brace);
 
     if is_open {
-        // Template expression
-        let template_expr = try!(parse_template_expr(&mut parser, DUMMY_SP));
-        Ok(TemplateNode::ExprNode(template_expr))
+        parser.bump();
+
+        // Template expression or literal
+        Ok(try!(parse_expr_or_lit(ecx, &mut parser, span)))
+
     } else {
         ecx.span_warn(span, "Expecting nested element");
 
         // Nested element
         let element_type = try!(parser.parse_ident());
         let element =
-            try!(parse_element(ecx, &mut parser, DUMMY_SP, element_type.name.to_string()));
+            try!(parse_element(ecx, &mut parser, span, element_type.name.to_string()));
 
         Ok(TemplateNode::ElementNode(element))
     }

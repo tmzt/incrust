@@ -5,8 +5,7 @@ pub fn render_template_main(js: &mut String) -> String {
     define_template! main {
         view root [
             div [
-                h1 [ {"Heading"} ]
-                p [ {"testing"} ]
+                h1 [ {"Counter: "} {"  "} {(data.counter)} ]
             ]
         ]
     }
