@@ -9,24 +9,6 @@ macro_rules! script_src {
     ($uri:expr) => (concat!["<script src=\"", $uri, "\"></script>"])
 }
 
-fn render_template(js: &mut String) -> String {
-    define_template! main {
-        view root [
-            h1 [ {"Heading"} ]
-
-            p [ {"testing"} ]
-        ]
-    }
-
-    emit_js_view_main!(js);
-
-    {
-        let mut out = String::new();
-        emit_rust_view_main!(out);
-        out
-    }
-}
-
 pub fn render() -> String {
     let mut page = String::new();
     let mut main_js = String::new();
