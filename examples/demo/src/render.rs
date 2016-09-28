@@ -34,9 +34,10 @@ pub fn render() -> String {
 
     // Output HTML template
         write!(page, "<html><head>{}</head><body>{}</body></html>",
-            format!("{}{}{}",
+            format!("{}{}{}{}",
                 "<title>Welcome to the incrust demo - rendering in isometric mode</title>",
-                script_src!("/assets/js/incremental-dom.js"),
+                script_src!("/assets/js/incremental-dom-min.js"),
+                format!("<script>{}</script>", main_js),
                 format!("<script>{}</script>", entry)),
 
             format!("{}{}{}",
