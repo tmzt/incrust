@@ -12,6 +12,7 @@ extern crate incrust_common;
 
 mod render;
 mod templates;
+mod models;
 
 use std::path::Path;
 

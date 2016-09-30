@@ -3,6 +3,7 @@ use std::fmt::Write;
 
 use incrust_common::compiled_view::CompiledView;
 use templates::render_template_main;
+use models;
 
 
 macro_rules! script_src {
@@ -98,10 +99,11 @@ pub fn render() -> String {
 
     // Output HTML template
         write!(page, "<html><head>{}</head><body>{}</body></html>",
-            format!("{}{}{}{}{}{}",
+            format!("{}{}{}{}{}{}{}",
                 "<title>Welcome to the incrust demo - rendering in isometric mode</title>",
                 script_src!("/assets/js/incremental-dom-min.js"),
                 script_src!("/assets/js/redux.js"),
+                format!("<script>{}</script>", models::person_js()),
                 format!("<script>{}</script>", main_js),
                 format!("<script>{}</script>", store_js),
                 format!("<script>{}</script>", entry)),
