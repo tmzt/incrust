@@ -18,11 +18,16 @@ use syntax::ext::base::IdentTT;
 use syntax::parse::token;
 
 mod template;
-use template::expand_define_template;
+mod actions;
 
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_syntax_extension(token::intern("define_template"),
-            IdentTT(Box::new(expand_define_template), None, false));
+            IdentTT(Box::new(template::expand_define_template), None, false));
+
+    // Store definitions
+    actions::register_store(reg);
+//    reg.register_syntax_extension(token::intern("define_store"),
+//            IdentTT(Box::new(actions::expand_define_store), None, false));
 }

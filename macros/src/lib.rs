@@ -11,6 +11,8 @@ macro_rules! emit_rust_compiled_template {
 }
 */
 
+pub mod actions;
+
 
 #[cfg(test)]
 mod tests {
