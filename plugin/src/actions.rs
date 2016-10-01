@@ -21,9 +21,6 @@ pub fn register_store(reg: &mut Registry) {
     // Store definitions
     reg.register_syntax_extension(token::intern("define_store_action"),
             NormalTT(Box::new(expand_define_store_action), None, false));
-
-//    reg.register_syntax_extension(token::intern("define_store"),
-//            IdentTT(Box::new(expand_define_store), None, false));
 }
 
 trait Store {
@@ -43,8 +40,6 @@ macro_rules! write_action_case {
         let q_expr = $e;
         let out = $w;
         quote_stmt!($ecx, {
-            //write!($w, "test");
-            //write!($w, "\t\tcase '{}': return {};\n", "1", "2");
             write!($out, "\t\tcase '{}': return {};\n",
                 $q_action_name,
                 format!("{{ {}: {} }}",
@@ -54,24 +49,6 @@ macro_rules! write_action_case {
             )
         })
     })
-}
-
-/// TODO: Document
-pub fn expand_define_store<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
-    let mut parser = ecx.new_parser_from_tts(&tts);
-
-    let store_name = ident.name.to_string();
-    let struct_name = format!("{}Store", store_name);
-    let struct_ident = ecx.ident_of(&struct_name[..]);
-
-    let stmt = quote_stmt!(ecx, {
-        struct $struct_ident {
-            
-        }
-    }).unwrap();
-    let stmts = vec![stmt];
-    let block = ecx.block(DUMMY_SP, stmts);
-    MacEager::expr(ecx.expr_block(block))
 }
 
 fn parse_action_expr<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
