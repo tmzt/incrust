@@ -6,7 +6,9 @@ use syntax::ext::base::ExtCtxt;
 use syntax::ext::quote::rt::ToTokens;
 use syntax::tokenstream::TokenTree;
 use syntax::parse::{PResult, token};
+use syntax::parse::token::BinOpToken as binops;
 use syntax::parse::parser::Parser;
+use syntax::parse::common::SeqSep;
 
 use std::ops::Deref;
 
@@ -99,40 +101,34 @@ impl ExprCtx {
     }
 }
 
-pub fn parse_action_expr<'cx, 'a>(ecx: &'cx mut ExtCtxt, store_name: &str, span: Span, parser: &mut Parser<'a>) -> PResult<'a, ActionExpr> {
-    let mut toks: Vec<P<Node>> = vec![];
-    let ctx = ExprCtx::new();
-    loop {
-        ecx.span_warn(span, &format!("Got token: {:?}", parser.token));
-        match &parser.token {
-            &token::Ident(ident) => {
-                let ident_name = ident.name.to_string();
-                match ident_name {
-                    _ if ident_name == store_name => {
-                        toks.push(ctx.store_ref(span, store_name));
-                    },
-                    _ => {
-                        ecx.span_err(span, &format!("Invalid variable reference ({}) in expression, must match store name.", ident_name));
-                    }
-                };
-                parser.bump();
-        },
-        &token::OpenDelim(token::Paren) => {
-            parser.eat(&token::OpenDelim(token::Paren));
-        },
-        &token::CloseDelim(token::Paren) => {
-            parser.eat(&token::CloseDelim(token::Paren));
-        },
-        &token::Eof => { break; },
-
-        _ => {
-            ecx.span_warn(span, &format!("Unexpected token parsing action expression: {:?}", parser.token));
-
-            // Ignore other tokens for now
-            parser.bump();
-        }
-        //_ => { ecx.span_err(span, "Unexpected token in expression"); }
-        };
-    }
-    Ok(ActionExpr{store_name: String::from(store_name), span: span, nodes: toks })
+pub fn parse_limited_expr_block<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, store_name: &str, parser: &mut Parser<'a>) -> PResult<'a, Vec<TokenTree>> {
+    try!(parser.expect(&token::OpenDelim(token::Brace)));
+    let expr_tokens = parser.parse_seq_to_end(&token::CloseDelim(token::Brace),
+                        SeqSep::none(),
+                        |parser| {
+                            match &parser.token {
+                                &token::BinOp(op) => {
+                                    match op {
+                                        binops::Plus | binops::Minus | binops::Star | binops::Slash => {
+                                        },
+                                        _ => {
+                                            ecx.span_err(span, &format!("Unexpected binop: {:?}", op));
+                                        }
+                                    };
+                                },
+                                &token::Ident(ident) => {
+                                    let ident_name = ident.name.to_string();
+                                    if ident_name != store_name {
+                                        ecx.span_err(span, &format!("Invalid variable reference ({}) in expression, must match store name.", ident_name));
+                                    }
+                                },
+                                &token::Literal(_, _) => {},
+                                &token::Eof => {},
+                                _ => {
+                                            ecx.span_err(span, &format!("Unexpected token: {:?}", &parser.token));
+                                }
+                            };
+                            parser.parse_token_tree()
+                        }).unwrap();
+    Ok(expr_tokens)
 }
