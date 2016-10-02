@@ -13,6 +13,10 @@ use syntax::tokenstream::TokenTree;
 use syntax::util::small_vector::SmallVector;
 use syntax::parse::PResult;
 use syntax::parse::parser::Parser;
+use syntax::parse::common::SeqSep;
+
+
+use expr::{ActionExpr, parse_action_expr, action_expr_to_tts};
 
 use itertools::Itertools;
 
@@ -37,31 +41,45 @@ macro_rules! write_action_case {
     ($ecx: expr, $w: expr, $store_name:expr, $action_name:expr, $e:expr) => ({
         let q_store_name = $store_name;
         let q_action_name = $action_name;
-        let q_expr = $e;
         let out = $w;
+
+        let expr_tokens = action_expr_to_tts($ecx, $e);
         quote_stmt!($ecx, {
+            let expr = stringify!($expr_tokens);
             write!($out, "\t\tcase '{}': return {};\n",
                 $q_action_name,
-                format!("{{ {}: {} }}",
+                format!("{{ {}: ({}) }}",
                     $q_store_name,
-                    stringify!($q_expr)
+                    expr
                 )
-            )
+            ).unwrap();
         })
     })
 }
 
+/*
 fn parse_action_expr<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
     // Expression
     parser.parse_expr()
 }
+*/
 
 fn parse_default_expr<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
     // Expression
     parser.parse_expr()
 }
 
-fn parse_define_store_action<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>) -> PResult<'a, Box<MacResult + 'cx>> {
+fn parse_action_expr_block<'cx, 'a>(ecx: &'cx mut ExtCtxt<'a>, span: Span, store_name: &str, parser: &mut Parser<'a>) -> PResult<'a, ActionExpr> {
+    try!(parser.expect(&token::OpenDelim(token::Brace)));
+    let expr_tokens = parser.parse_seq_to_end(&token::CloseDelim(token::Brace),
+                          SeqSep::none(),
+                          |parser| parser.parse_token_tree()).unwrap();
+    parser.eat(&token::CloseDelim(token::Brace));
+    let mut expr_parser = ecx.new_parser_from_tts(&expr_tokens);
+    Ok(try!(parse_action_expr(ecx, store_name, span, &mut expr_parser)))
+}
+
+fn parse_define_store_action<'cx, 'a>(ecx: &'cx mut ExtCtxt<'a>, span: Span, parser: &mut Parser<'a>) -> PResult<'a, Box<MacResult + 'cx>> {
     // Output stream
     let w = try!(parser.parse_ident());
     try!(parser.expect(&token::Comma));
@@ -80,7 +98,7 @@ fn parse_define_store_action<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser:
     try!(parser.expect(&token::FatArrow));
 
     // expression
-    let expr = try!(parse_action_expr(ecx, span, parser));
+    let expr = try!(parse_action_expr_block(ecx, span, &store_name, parser));
 
     let stmt = write_action_case!(ecx, w, store_name, action_name, expr).unwrap();
 

@@ -19,6 +19,7 @@ use syntax::parse::token;
 
 mod template;
 mod actions;
+mod expr;
 
 
 #[plugin_registrar]
