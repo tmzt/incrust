@@ -30,6 +30,12 @@ path = "./macros"
 [dev-dependencies.incrust_macros]
 path = "./macros"
 
+[dependencies.examples_common]
+path = "./examples_common"
+
+[dev-dependencies.examples_common]
+path = "./examples_common"
+
 
 
 [[example]]
@@ -37,4 +43,4 @@ name = "demo"
 path = "./examples/demo/src/main.rs"
 
 [workspace]
-members = ["common", "plugin", "codegen", "macros", "examples/demo"]
+members = ["common", "plugin", "codegen", "macros", "examples_common", "examples/demo"]

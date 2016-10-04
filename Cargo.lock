@@ -2,6 +2,7 @@
 name = "src-incrust"
 version = "0.1.0"
 dependencies = [
+ "examples_common 0.1.0",
  "incrust_common 0.1.0",
  "incrust_macros 0.1.0",
  "incrust_plugin 0.1.0",
@@ -30,6 +31,15 @@ dependencies = [
 name = "either"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "examples_common"
+version = "0.1.0"
+dependencies = [
+ "incrust_common 0.1.0",
+ "incrust_macros 0.1.0",
+ "incrust_plugin 0.1.0",
+]
 
 [[package]]
 name = "groupable"
@@ -126,6 +136,7 @@ dependencies = [
 name = "incrust_server_example"
 version = "0.1.0"
 dependencies = [
+ "examples_common 0.1.0",
  "incrust_common 0.1.0",
  "incrust_macros 0.1.0",
  "incrust_plugin 0.1.0",

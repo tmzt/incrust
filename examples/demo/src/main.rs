@@ -10,14 +10,19 @@ extern crate incrust_macros;
 
 extern crate incrust_common;
 
-mod render;
+#[macro_use]
+extern crate examples_common;
+
 mod templates;
 mod models;
 
 use std::path::Path;
 
 use nickel::{ Nickel, HttpRouter, StaticFilesHandler };
-use render::render;
+
+use templates::render_template_main;
+use examples_common::render::render;
+
 
 fn statics() -> StaticFilesHandler {
     const CARGO_MANIFEST_DIR: Option<&'static str> = option_env!("CARGO_MANIFEST_DIR");
@@ -29,7 +34,7 @@ fn statics() -> StaticFilesHandler {
 fn main() {
     let mut server = Nickel::new();
     server.utilize(statics());
-    server.get("**", middleware!(render()));
+    server.get("**", middleware!(render(render_template_main)));
 
-    server.listen("127.0.0.1:6767");
+    server.listen("127.0.0.1:6767").unwrap();
 }

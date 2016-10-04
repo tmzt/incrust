@@ -22,3 +22,9 @@ path = "../../macros"
 
 [dependencies.incrust_plugin]
 path = "../../plugin"
+
+[dependencies.examples_common]
+path = "../../examples_common"
+
+[dev-dependencies.examples_common]
+path = "../../examples_common"
