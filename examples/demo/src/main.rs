@@ -14,7 +14,6 @@ extern crate incrust_common;
 extern crate examples_common;
 
 mod templates;
-mod models;
 
 use std::path::Path;
 

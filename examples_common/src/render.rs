@@ -8,49 +8,36 @@ macro_rules! script_src {
     ($uri:expr) => (concat!["<script src=\"", $uri, "\"></script>"])
 }
 
-pub fn render(main_fn: fn(html: &mut String, js: &mut String)) -> String {
+pub fn render(main_fn: fn(html: &mut String, js: &mut String, head_tags: &mut String)) -> String {
     let mut page = String::new();
     let mut main_html = String::new();
     let mut main_js = String::new();
+    let mut head_tags = String::new();
 
     // Render Rust and JS main template
-        main_fn(&mut main_html, &mut main_js);
+        main_fn(&mut main_html, &mut main_js, &mut head_tags);
         println!("Rendered main template: [{}]", main_html);
-
-    // Define redux stores
-        let store_js = define_stores!{
-            store counter {
-                default => (0);
-                action INCREMENT => (counter + 1);
-                action DECREMENT => (counter - 1)
-            }
-        };
 
     // TODO: Remove the 'start rendering' link
         let entry = r"
-            document.addEventListener('DOMContentLoaded', function() {
-                var root = document.querySelector('#root');
-                function render(state) {
-                    console.log('Patching IncrementalDOM');
-                    IncrementalDOM.patch(root, render_view_root, state);
-                }
+            function register_main_view(store_factory, start) {
+                document.addEventListener('DOMContentLoaded', function() {
+                    var root = document.querySelector('#root');
+                    function render(state) {
+                        console.log('Patching IncrementalDOM');
+                        IncrementalDOM.patch(root, render_view_root, state);
+                    }
 
-                // Create a Redux store for our counter data
-                var store_counter = create_store_counter();
+                    var store = store_factory();
 
-                // Subscribe to updates
-                store_counter.subscribe(function() {
-                    render(store_counter.getState());
+                    // Subscribe to updates
+                    store.subscribe(function() {
+                        render(store.getState());
+                    });
+
+                    document.querySelector('#actions .render').addEventListener('click', function() { start(store); });
                 });
-
-                function start_counter() {
-                    setInterval(function() {
-                        store_counter.dispatch({type: 'INCREMENT'});
-                    }, 1000);
-                }
-
-                document.querySelector('#actions .render').addEventListener('click', function() { start_counter(); });
-            });";
+            }";
 
     // Output HTML template
         write!(page, "<html><head>{}</head><body>{}</body></html>",
@@ -59,8 +46,8 @@ pub fn render(main_fn: fn(html: &mut String, js: &mut String)) -> String {
                 script_src!("/assets/js/incremental-dom-min.js"),
                 script_src!("/assets/js/redux.js"),
                 format!("<script>{}</script>", main_js),
-                format!("<script>{}</script>", store_js),
-                format!("<script>{}</script>", entry)),
+                format!("<script>{}</script>", entry),
+                head_tags),
 
             format!("{}{}{}",
                 format!("<div id=\"root\">{}</div>", main_html),

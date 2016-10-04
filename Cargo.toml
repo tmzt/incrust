@@ -42,5 +42,9 @@ path = "./examples_common"
 name = "demo"
 path = "./examples/demo/src/main.rs"
 
+[[example]]
+name = "form"
+path = "./examples/form/src/main.rs"
+
 [workspace]
 members = ["common", "plugin", "codegen", "macros", "examples_common", "examples/demo"]
