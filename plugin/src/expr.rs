@@ -72,14 +72,6 @@ pub fn action_expr_to_tts(ecx: &ExtCtxt, expr: ActionExpr) -> Vec<TokenTree> {
     nodes_to_tts(ecx, expr.span, &expr.nodes)
 }
 
-/*
-impl ToTokens for P<Node> {
-    fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![TokenTree::Token(self.span, token::Interpolated(token::NtItem(self.clone())))]
-    }
-}
-*/
-
 pub struct ActionExpr {
     store_name: String,
     span: Span,

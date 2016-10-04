@@ -42,7 +42,6 @@ macro_rules! write_action_case {
         let q_action_name = $action_name;
         let out = $w;
 
-        //let expr_tokens = action_expr_to_tts($ecx, $e);
         let expr_tokens = $e;
         quote_stmt!($ecx, {
             let expr = stringify!($expr_tokens);
@@ -57,29 +56,10 @@ macro_rules! write_action_case {
     })
 }
 
-/*
-fn parse_action_expr<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
-    // Expression
-    parser.parse_expr()
-}
-*/
-
 fn parse_default_expr<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>) -> PResult<'a, P<ast::Expr>> {
     // Expression
     parser.parse_expr()
 }
-
-/*
-fn parse_limited_expr_block<'cx, 'a>(ecx: &'cx mut ExtCtxt<'a>, span: Span, store_name: &str, parser: &mut Parser<'a>) -> PResult<'a, Vec<TokenTree>> {
-    try!(parser.expect(&token::OpenDelim(token::Brace)));
-    let expr_tokens = parser.parse_seq_to_end(&token::CloseDelim(token::Brace),
-                          SeqSep::none(),
-                          |parser| parser.parse_token_tree()).unwrap();
-    parser.eat(&token::CloseDelim(token::Brace));
-    let mut expr_parser = ecx.new_parser_from_tts(&expr_tokens);
-    Ok(try!(parse_limited_expr(ecx, store_name, span, &mut expr_parser)))
-}
-*/
 
 fn parse_define_store_action<'cx, 'a>(ecx: &'cx mut ExtCtxt<'a>, span: Span, parser: &mut Parser<'a>) -> PResult<'a, Box<MacResult + 'cx>> {
     // Output stream
@@ -100,7 +80,6 @@ fn parse_define_store_action<'cx, 'a>(ecx: &'cx mut ExtCtxt<'a>, span: Span, par
     try!(parser.expect(&token::FatArrow));
 
     // expression
-    //let expr = try!(parse_action_expr_block(ecx, span, &store_name, parser));
     let expr = try!(parse_limited_expr_block(ecx, span, &store_name, parser));
 
     let stmt = write_action_case!(ecx, w, store_name, action_name, expr).unwrap();
