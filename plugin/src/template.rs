@@ -21,11 +21,18 @@ use incrust_common::view::parse_view;
 use incrust_common::compiled_view::CompiledView;
 
 
+/*
 fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
     let ident = ecx.ident_of(name);
     // TODO: This is changed to add_ext in b4906a (https://github.com/rust-lang/rust/commit/b4906a93)
     // update when updating nightly
     (*ecx.resolver).add_macro(Mark::root(), ident, ext);
+}
+*/
+
+fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
+    let ident = ecx.ident_of(name);
+    (*ecx.resolver).add_ext(ident, ext);
 }
 
 macro_rules! define_named_template {

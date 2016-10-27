@@ -1,6 +1,6 @@
 [package]
 authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
-name = "incrust_server_example"
+name = "incrust_server_example_demo"
 version = "0.1.0"
 
 [build-dependencies]

@@ -47,4 +47,4 @@ name = "form"
 path = "./examples/form/src/main.rs"
 
 [workspace]
-members = ["common", "plugin", "codegen", "macros", "examples_common", "examples/demo"]
+members = ["common", "plugin", "codegen", "macros", "examples_common", "examples/demo", "examples/form"]

@@ -3,13 +3,13 @@
 macro_rules! define_store {
     ($w: expr, store $store:ident {
         default => ($def:expr);
-        $(action $act: ident => $e:expr);*
+        $(action $act: ident => ($e:expr));*
     }) => ({
         let mut aliases = String::new();
         write!(aliases, "\tvar {} = state.{};", stringify!($store), stringify!($store)).unwrap();
 
         let mut actions = String::new();
-        $(define_store_action!(actions, $store, action $act => { counter + 1});)*
+        $(define_store_action!(actions, $store, action $act => ($e));)*
         write!(actions, "\t\tdefault: return state;\n");
 
         let default_value = format!("\tstate = state || {{ {}: {} }};\n", stringify!($store), stringify!($def));
@@ -22,6 +22,21 @@ macro_rules! define_store {
         write!($w, "{}", store_fn);
     })
 }
+
+/*
+#[macro_export]
+macro_rules! define_store {
+    ($w: expr, store $store:ident {
+        default => ($def:expr);
+        $(action $act: ident => $e:expr);*
+    }) => ({
+        define_store_with_tt!($w, store $store {
+            default => ($def);
+            $(action $act => $e);*
+        });
+    });
+}
+*/
 
 #[macro_export]
 macro_rules! define_stores {

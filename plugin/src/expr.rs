@@ -94,10 +94,14 @@ impl ExprCtx {
 }
 
 pub fn parse_limited_expr_block<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, store_name: &str, parser: &mut Parser<'a>) -> PResult<'a, Vec<TokenTree>> {
-    try!(parser.expect(&token::OpenDelim(token::Brace)));
-    let expr_tokens = parser.parse_seq_to_end(&token::CloseDelim(token::Brace),
+    try!(parser.expect(&token::OpenDelim(token::Paren)));
+
+    ecx.span_warn(span, &format!("Store: {}", store_name));
+    let expr_tokens = parser.parse_seq_to_end(&token::CloseDelim(token::Paren),
                         SeqSep::none(),
                         |parser| {
+                            ecx.span_warn(span, &format!("Got token: {:?}", &parser.token));
+
                             match &parser.token {
                                 &token::BinOp(op) => {
                                     match op {
@@ -111,9 +115,15 @@ pub fn parse_limited_expr_block<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, stor
                                 &token::Ident(ident) => {
                                     let ident_name = ident.name.to_string();
                                     if ident_name != store_name {
-                                        ecx.span_err(span, &format!("Invalid variable reference ({}) in expression, must match store name.", ident_name));
+                                        ecx.span_err(span, &format!("Invalid variable reference ({}) in expression, must match the store name ({}).", ident_name, store_name));
                                     }
                                 },
+
+                                &token::OpenDelim(token::Brace) => {},
+                                &token::CloseDelim(token::Brace) => {},
+                                &token::Colon => {},
+
+                                &token::Interpolated(token::NtExpr(_)) => {},
                                 &token::Literal(_, _) => {},
                                 &token::Eof => {},
                                 _ => {

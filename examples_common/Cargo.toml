@@ -3,14 +3,14 @@ name = "examples_common"
 version = "0.1.0"
 authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
 
-[dev-dependencies.incrust_macros]
+[dependencies.incrust_macros]
 path = "../macros"
+
+[dev-dependencies.incrust_plugin]
+path = "../plugin"
 
 [dependencies.incrust_plugin]
 path = "../plugin"
 
 [dependencies.incrust_common]
 path = "../common"
-
-[dependencies.incrust_macros]
-path = "../macros"
