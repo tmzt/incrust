@@ -9,7 +9,7 @@ use syntax::ptr::P;
 
 use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
 use codegen::{IntoWriteStmt, IntoViewItem};
-use jsgen::{IntoJsFunction, IntoJsOutputCall};
+use js_write::{WriteJs, JsWrite};
 use output_actions::{OutputAction, IntoOutputActions};
 use IntoBlock;
 
@@ -85,6 +85,12 @@ impl IntoBlock for View {
     }
 }
 
+impl WriteJs for View {
+    fn write_js<W>(&self, js: &mut W) where W: JsWrite {
+    }
+}
+
+/*
 impl IntoJsFunction for View {
     fn into_js_function<'cx>(&self, ecx: &'cx ExtCtxt) -> String {
         let name = &self.name;
@@ -100,6 +106,7 @@ impl IntoJsFunction for View {
         js
     }
 }
+*/
 
 pub fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt,
                        parser: &mut Parser<'a>,

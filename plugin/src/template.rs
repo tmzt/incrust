@@ -15,7 +15,7 @@ use syntax::parse::parser::Parser;
 use itertools::Itertools;
 
 use incrust_common::codegen;
-use incrust_common::jsgen::IntoJsFunction;
+use incrust_common::js_write::{WriteJs, JsWrite};
 use incrust_common::output_actions::IntoOutputActions;
 use incrust_common::view::parse_view;
 use incrust_common::compiled_view::CompiledView;
@@ -112,9 +112,19 @@ impl WriteBlockFactory for LangSyntaxExt<Rust> {
 
 impl WriteBlockFactory for LangSyntaxExt<Js> {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
+        /*
         let funcs: Vec<String> = self.decl.compiled_views.iter()
             .map(|compiled_view| compiled_view.into_js_function(ecx))
             .intersperse("; ".into())
+            .collect();
+        */
+        let funcs: Vec<String> = self.decl.compiled_views.iter()
+            .map(|compiled_view| {
+                let mut out = String::new();
+                compiled_view.write_js(&mut out);
+                out
+            })
+            //.intersperse("; ".into())
             .collect();
 
         codegen::create_write_statements_block(ecx, w_ident, funcs.as_slice())

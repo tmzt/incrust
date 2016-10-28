@@ -11,7 +11,6 @@ use syntax::parse::common::SeqSep;
 use syntax::ptr::P;
 
 use codegen::IntoWriteStmt;
-use jsgen::IntoJsOutputCall;
 use output_actions::{OutputAction, IntoOutputActions};
 
 
@@ -120,6 +119,7 @@ impl IntoWriteStmt for TemplateExpr {
     }
 }
 
+/*
 impl IntoJsOutputCall for TemplateExpr {
     fn into_js_output_call(&self) -> String {
         let contents = tts_to_string(&self.tokens);
@@ -127,6 +127,7 @@ impl IntoJsOutputCall for TemplateExpr {
         format!("IncrementalDOM.text({})", contents)
     }
 }
+*/
 
 impl IntoOutputActions for TemplateNode {
     fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {

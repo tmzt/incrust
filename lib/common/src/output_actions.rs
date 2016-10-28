@@ -8,7 +8,8 @@ use syntax::tokenstream::TokenTree;
 
 use node::TemplateExpr;
 use codegen::IntoWriteStmt;
-use jsgen::{IntoJsFunction, IntoJsOutputCall};
+
+use js_write::{WriteJs, JsWrite};
 
 
 pub trait IntoOutputActions {
@@ -122,6 +123,7 @@ impl IntoWriteStmt for OutputAction {
     }
 }
 
+/*
 impl IntoJsOutputCall for OutputAction {
     fn into_js_output_call(&self) -> String {
         match *self {
@@ -148,3 +150,52 @@ impl IntoJsOutputCall for OutputAction {
         }
     }
 }
+*/
+
+impl WriteJs for OutputAction {
+    fn write_js<W>(&self, js: &mut W) where W: JsWrite {
+        match *self {
+            OutputAction::Write(ref contents) => {
+                /*
+                js.call_method("IncrementalDOM.text", |ex| {
+                    ex.string_lit(&contents);
+                });
+                */
+            },
+
+            // For now, write the expression as a string
+            OutputAction::WriteResult(ref template_expr) => {
+                /*
+                js.write_simple_expr(|ex| {
+                    template_expr.write_to(ex);
+                });
+                */
+            },
+
+            OutputAction::WriteOpen(ref element_type) => {
+                /*
+                js.call_method("IncrementalDOM.text", |ex| {
+                    ex.string_lit(&element_type);
+                });
+                */
+            },
+
+            OutputAction::WriteClose(ref element_type) => {
+                /*
+                js.call_method("IncrementalDOM.elementClose", |ex| {
+                    ex.string_lit(&element_type);
+                });
+                */
+            },
+
+            OutputAction::WriteVoid(ref element_type) => {
+                /*
+                js.call_method("IncrementalDOM.elementVoid", |ex| {
+                    ex.string_lit(&element_type);
+                });
+                */
+            }
+        }
+    }
+}
+
