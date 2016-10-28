@@ -1,6 +1,5 @@
 #![feature(plugin)]
-#![plugin(incrust_plugin)] extern crate incrust_plugin;
-
+#![plugin(incrust_plugin)]
 
 #[macro_use]
 extern crate nickel;
@@ -14,6 +13,7 @@ extern crate incrust_common;
 extern crate examples_common;
 
 mod templates;
+mod models;
 
 use std::path::Path;
 
@@ -35,5 +35,5 @@ fn main() {
     server.utilize(statics());
     server.get("**", middleware!(render(render_template_main)));
 
-    server.listen("127.0.0.1:6767").unwrap();
+    server.listen("127.0.0.1:6767");
 }

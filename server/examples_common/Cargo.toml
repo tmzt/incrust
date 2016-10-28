@@ -1,0 +1,18 @@
+[package]
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
+name = "examples_common"
+version = "0.1.0"
+
+[dependencies]
+
+[dependencies.incrust_common]
+optional = false
+path = "../../lib/common/"
+
+[dependencies.incrust_macros]
+optional = false
+path = "../../lib/macros/"
+
+[dependencies.incrust_plugin]
+optional = false
+path = "../../plugin/"

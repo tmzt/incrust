@@ -1,0 +1,31 @@
+[package]
+authors = ["Timothy Meade <zt.tmzt@gmail.com>"]
+name = "incrust_server"
+version = "0.1.0"
+
+[dependencies]
+nickel = "0.9.0"
+
+[dependencies.incrust_common]
+optional = false
+path = "../lib/common"
+
+[dependencies.incrust_macros]
+optional = false
+path = "../lib/macros"
+
+[dependencies.incrust_plugin]
+optional = false
+path = "../plugin/"
+
+[dependencies.examples_common]
+optional = false
+path = "./examples_common/"
+
+[[example]]
+name = "demo"
+path = "./examples/demo/main.rs"
+
+[[example]]
+name = "form"
+path = "./examples/form/main.rs"

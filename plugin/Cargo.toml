@@ -7,10 +7,10 @@ version = "0.1.0"
 itertools = "0.5.0"
 
 [dependencies.incrust_common]
-path = "../common"
+path = "../lib/common"
 
 [dev-dependencies.incrust_common]
-path = "../common"
+path = "../lib/common"
 
 [lib]
 plugin = true
