@@ -11,7 +11,7 @@ use syntax::ptr::P;
 
 use itertools::Itertools;
 
-use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
+use node::{Element, TemplateNode, parse_node, parse_contents};
 use codegen::{IntoWriteStmt, IntoViewItem};
 use js_write::{WriteJs, JsWrite};
 use output_actions::{OutputAction, IntoOutputActions};
@@ -95,26 +95,14 @@ impl IntoBlock for CompiledView {
     }
 }
 
-/*
-impl IntoJsFunction for CompiledView {
-    fn into_js_function<'cx>(&self, ecx: &'cx ExtCtxt) -> String {
-        let name = &self.name;
-        let output_actions = &self.output_actions;
-
-        let js_stmts: Vec<String> = output_actions.iter()
-            .map(|output_action| output_action.into_js_output_call())
-            .intersperse("; ".into())
-            .collect();
-        
-        let js_body: String = js_stmts.join(" ");
-        let js = format!("function render_view_{}(data) {{ {} }}", name, js_body);
-
-        js
-    }
-}
-*/
-
 impl WriteJs for CompiledView {
-    fn write_js<W>(&self, js: &mut W) where W: JsWrite {
+    fn write_js(&self, js: &mut JsWrite) {
+        let func_name = &format!("render_view_{}", &self.name);
+
+        js.function(func_name, &|inner: &mut JsWrite| {
+            for output_action in &self.output_actions {
+                &output_action.write_js(inner);
+            }
+        });
     }
 }

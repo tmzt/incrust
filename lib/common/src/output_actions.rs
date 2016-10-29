@@ -6,10 +6,10 @@ use syntax::ext::quote::rt::ToTokens;
 use syntax::print::pprust::tts_to_string;
 use syntax::tokenstream::TokenTree;
 
-use node::TemplateExpr;
 use codegen::IntoWriteStmt;
 
-use js_write::{WriteJs, JsWrite};
+use simple_expr::{SimpleExpr, js_write};
+use js_write::{WriteJs, JsWrite, WriteJsSimpleExpr};
 
 
 pub trait IntoOutputActions {
@@ -22,7 +22,7 @@ pub trait IntoOutputActions {
 pub enum OutputAction {
     // Text and computed values
     Write(String),
-    WriteResult(TemplateExpr),
+    WriteResult(SimpleExpr),
 
     // Elements
     WriteOpen(String),
@@ -153,47 +153,47 @@ impl IntoJsOutputCall for OutputAction {
 */
 
 impl WriteJs for OutputAction {
-    fn write_js<W>(&self, js: &mut W) where W: JsWrite {
+    //fn write_js<W>(&self, js: &mut W) where W: JsWrite {
+    fn write_js(&self, js: &mut JsWrite) {
         match *self {
             OutputAction::Write(ref contents) => {
-                /*
-                js.call_method("IncrementalDOM.text", |ex| {
-                    ex.string_lit(&contents);
+                js.call_method("IncrementalDOM.text", &|pl| {
+                    pl.param(&|ex| {
+                        ex.string_lit(&contents);
+                    });
                 });
-                */
             },
 
-            // For now, write the expression as a string
             OutputAction::WriteResult(ref template_expr) => {
-                /*
-                js.write_simple_expr(|ex| {
-                    template_expr.write_to(ex);
+                js.call_method("IncrementalDOM.text", &|pl| {
+                    pl.param(&|ex| {
+                        template_expr.write_js_simple_expr(ex);
+                    });
                 });
-                */
             },
 
             OutputAction::WriteOpen(ref element_type) => {
-                /*
-                js.call_method("IncrementalDOM.text", |ex| {
-                    ex.string_lit(&element_type);
+                js.call_method("IncrementalDOM.elementOpen", &|pl| {
+                    pl.param(&|ex| {
+                        ex.string_lit(&element_type);
+                    });
                 });
-                */
             },
 
             OutputAction::WriteClose(ref element_type) => {
-                /*
-                js.call_method("IncrementalDOM.elementClose", |ex| {
-                    ex.string_lit(&element_type);
+                js.call_method("IncrementalDOM.elementClose", &|pl| {
+                    pl.param(&|ex| {
+                        ex.string_lit(&element_type);
+                    });
                 });
-                */
             },
 
             OutputAction::WriteVoid(ref element_type) => {
-                /*
-                js.call_method("IncrementalDOM.elementVoid", |ex| {
-                    ex.string_lit(&element_type);
+                js.call_method("IncrementalDOM.elementVoid", &|pl| {
+                    pl.param(&|ex| {
+                        ex.string_lit(&element_type);
+                    });
                 });
-                */
             }
         }
     }

@@ -7,7 +7,7 @@ use syntax::parse::{token, PResult};
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
-use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
+use node::{Element, TemplateNode, parse_node, parse_contents};
 use codegen::{IntoWriteStmt, IntoViewItem};
 use js_write::{WriteJs, JsWrite};
 use output_actions::{OutputAction, IntoOutputActions};
@@ -85,10 +85,12 @@ impl IntoBlock for View {
     }
 }
 
+/*
 impl WriteJs for View {
     fn write_js<W>(&self, js: &mut W) where W: JsWrite {
     }
 }
+*/
 
 /*
 impl IntoJsFunction for View {

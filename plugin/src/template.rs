@@ -112,12 +112,6 @@ impl WriteBlockFactory for LangSyntaxExt<Rust> {
 
 impl WriteBlockFactory for LangSyntaxExt<Js> {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
-        /*
-        let funcs: Vec<String> = self.decl.compiled_views.iter()
-            .map(|compiled_view| compiled_view.into_js_function(ecx))
-            .intersperse("; ".into())
-            .collect();
-        */
         let funcs: Vec<String> = self.decl.compiled_views.iter()
             .map(|compiled_view| {
                 let mut out = String::new();

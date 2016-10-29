@@ -2,45 +2,56 @@
 use std::fmt::Write;
 
 pub trait WriteJs {
-    fn write_js<W>(&self, js: &mut W) where W: JsWrite;
+    fn write_js(&self, js: &mut JsWrite);
+}
+
+pub trait WriteJsSimpleExpr {
+    fn write_js_simple_expr(&self, js: &mut JsWriteSimpleExpr);
 }
 
 pub trait JsWrite {
-    fn open_function(&mut self, func_name: &str);
-    fn close_function(&mut self);
+    fn function(&mut self, func_name: &str, f: &Fn(&mut JsWrite));
 
-    fn let_statement<F>(&mut self, var_name: &str, f: F) where F: FnOnce(&mut JsWriteSimpleExpr);
-    fn call_method<F>(&mut self, method_name: &str, f: F) where F: FnOnce(&mut JsWriteParamList);
-    fn write_simple_expr<F>(&mut self, f: F) where F: FnOnce(&mut JsWriteSimpleExpr);
+    fn let_statement(&mut self, var_name: &str, f: &FnOnce(&mut JsWriteSimpleExpr));
+    fn call_method(&mut self, method_name: &str, f: &Fn(&mut JsWriteParamList));
+    //fn write_simple_expr<F>(&mut self, f: F) where F: FnOnce(&mut JsWriteSimpleExpr);
 }
 
 pub trait JsWriteSimpleExpr {
     fn var_reference(&mut self, var_name: &str);
-    fn binop_add(&mut self);
+    fn string_lit(&mut self, lit: &str);
+
+    fn open_paren(&mut self);
+    fn close_paren(&mut self);
+
+    fn binop_plus(&mut self);
     fn binop_minus(&mut self);
 }
 
 pub trait JsWriteParamList {
-    fn param<F>(&mut self, f: F) where F: FnOnce(&JsWriteSimpleExpr);
+    fn param(&mut self, f: &Fn(&mut JsWriteSimpleExpr));
 }
 
 impl<T: Write> JsWrite for T {
-    fn open_function(&mut self, func_name: &str) {
-        write!(self, "function {}() {{", func_name);
+    fn let_statement(&mut self, var_name: &str, f: &FnOnce(&mut JsWriteSimpleExpr)) {
     }
 
-    fn close_function(&mut self) {
+    fn function(&mut self, func_name: &str, f: &Fn(&mut JsWrite)) {
+        write!(self, "function {}() {{", func_name);
+        f(self);
         write!(self, "}};");
     }
 
-    fn let_statement<F>(&mut self, var_name: &str, f: F) where F: FnOnce(&mut JsWriteSimpleExpr) {
+    fn call_method(&mut self, method_name: &str, f: &Fn(&mut  JsWriteParamList)) {
+        write!(self, "{}(", method_name);
+        f(self);
+        write!(self, ");\r\n");
     }
 
-    fn call_method<F>(&mut self, method_name: &str, f: F) where F: FnOnce(&mut JsWriteParamList) {
-    }
-
+    /*
     fn write_simple_expr<F>(&mut self, f: F) where F: FnOnce(&mut JsWriteSimpleExpr) {
     }
+    */
 }
 
 impl<T: Write> JsWriteSimpleExpr for T {
@@ -48,7 +59,19 @@ impl<T: Write> JsWriteSimpleExpr for T {
         write!(self, "{}", var_name);
     }
 
-    fn binop_add(&mut self) {
+    fn string_lit(&mut self, lit: &str) {
+        write!(self, "\"{}\"", lit);
+    }
+
+    fn open_paren(&mut self) {
+        write!(self, "()");
+    }
+
+    fn close_paren(&mut self) {
+        write!(self, ")");
+    }
+
+    fn binop_plus(&mut self) {
         write!(self, " + ");
     }
 
@@ -58,8 +81,8 @@ impl<T: Write> JsWriteSimpleExpr for T {
 }
 
 impl<T: Write> JsWriteParamList for T {
-    fn param<F>(&mut self, f: F) where F: FnOnce(&JsWriteSimpleExpr) {
-        //f(&self);
+    fn param(&mut self, f: &Fn(&mut JsWriteSimpleExpr)) {
+        f(self);
     }
 }
 
