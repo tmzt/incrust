@@ -7,7 +7,7 @@ use syntax::parse::{token, PResult};
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
-use node::{Element, TemplateNode, parse_node, parse_contents};
+use template_node::{Element, TemplateNode, parse_node, parse_contents};
 use codegen::{IntoWriteStmt, IntoViewItem};
 use js_write::{WriteJs, JsWrite};
 use output_actions::{OutputAction, IntoOutputActions};

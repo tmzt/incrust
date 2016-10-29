@@ -29,7 +29,7 @@ use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
 pub mod codegen;
-pub mod node;
+pub mod template_node;
 pub mod view;
 pub mod output_actions;
 pub mod compiled_view;
@@ -38,7 +38,6 @@ pub mod js_write;
 
 use codegen::{IntoWriteStmt, create_template_block};
 use output_actions::{OutputAction, IntoOutputActions};
-use node::{Element, TemplateNode, parse_node, parse_contents};
 use view::{View, parse_view};
 
 

@@ -11,7 +11,6 @@ use syntax::ptr::P;
 
 use itertools::Itertools;
 
-use node::{Element, TemplateNode, parse_node, parse_contents};
 use codegen::{IntoWriteStmt, IntoViewItem};
 use js_write::{WriteJs, JsWrite};
 use output_actions::{OutputAction, IntoOutputActions};
