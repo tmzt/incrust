@@ -11,27 +11,6 @@ use simple_expr::SimpleExpr;
 use simple_expr::parse::parse_simple_expr;
 
 
-/*
-use syntax::ast;
-use syntax::tokenstream::TokenTree;
-use syntax::codemap::{Span, DUMMY_SP};
-use syntax::ext::base::ExtCtxt;
-use syntax::ext::quote::rt::ToTokens;
-use syntax::print::pprust::{token_to_string, tts_to_string};
-use syntax::parse::token::BinOpToken as binops;
-use syntax::parse::{token, PResult};
-use syntax::parse::parser::Parser;
-use syntax::parse::common::SeqSep;
-use syntax::ptr::P;
-
-use simple_expr::SimpleExpr;
-use simple_expr::parse::parse_simple_expr;
-
-use codegen::IntoWriteStmt;
-use simple_expr::{SimpleExpr, SimpleExprToken, SimpleExprWrite, WriteSimpleExpr};
-use output_actions::{OutputAction, IntoOutputActions};
-*/
-
 #[derive(Clone, Debug)]
 pub struct Element {
     element_type: String,
