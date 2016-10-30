@@ -17,6 +17,7 @@ use itertools::Itertools;
 use incrust_common::nodes::*;
 
 use incrust_common::codegen;
+use incrust_common::codegen::lang::{Lang, Js, Html};
 use incrust_common::js_write::{WriteJs, JsWrite};
 use incrust_common::output_actions::{OutputActionWrite, IntoOutputActions};
 
@@ -29,37 +30,13 @@ pub trait NamedOutputDefiner {
     fn define_named_output<'cx>(&self, ecx: &'cx mut ExtCtxt, output_name: &str, f: Fn(&mut OutputActionWrite));
 }
 
-pub mod lang {
-    use std::marker::PhantomData;
-    pub enum Rust {}
-    pub enum Js {}
-
-    pub trait Lang {
-        fn ext() -> &'static str;
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct NamedOutputExt<L: Lang, D> {
-        data: D,
-        _l: PhantomData<L>
-    }
-
-    impl <L: Lang, D> NamedOutputExt<L, D> {
-        fn create_named_output(name: &str, data: D) -> NamedOutputExt<L, D> {
-            NamedOutputExt {
-                data: data,
-                _l: PhantomData::<L>,
-            }
-        }
-    }
-}
 
 mod output_data {
-    use super::lang::{Lang, Js, Rust};
     use syntax::ast;
     use std::marker::PhantomData;
     use syntax::ext::base::ExtCtxt;
     use incrust_common::js_write::WriteJs;
+    use incrust_common::codegen::lang::{Lang, Js, Html};
 
     trait ToData<L: Lang, D> {
         fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> D;
@@ -86,7 +63,6 @@ mod output_data {
 
 mod output_definer {
     use super::{DefineNamedOutputs, NamedOutputDefiner};
-    use super::lang::{Lang, NamedOutputExt, Js, Rust};
 
     use std::rc::Rc;
     use std::marker::PhantomData;
@@ -99,6 +75,7 @@ mod output_definer {
     use incrust_common::output_actions::OutputActionWrite;
     use incrust_common::nodes::template_node::{Template, TemplateNode};
     use incrust_common::nodes::view_node::{View};
+    use incrust_common::codegen::lang::{NamedOutputExt, Lang, Js, Html};
 
     fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
         let ident = ecx.ident_of(name);
@@ -158,9 +135,9 @@ pub mod expander {
     use syntax::util::small_vector::SmallVector;
     use syntax::codemap::Span;
 
-    use super::lang::{Lang, Js, Rust};
     use incrust_common::nodes::*;
     use incrust_common::nodes::template_node::{Template, TemplateNode};
+    use incrust_common::codegen::lang::{Lang, Js, Html};
 
     #[derive(Debug, Clone)]
     struct LangSyntaxExt<L: Lang> {
@@ -198,18 +175,8 @@ pub mod expander {
             */
         )
     }
-    lang_expander!(Rust);
+    lang_expander!(Html);
     lang_expander!(Js);
-
-    macro_rules! lang {
-        ($lang: ty, $ext: expr) => (
-            impl Lang for $lang {
-                fn ext() -> &'static str { $ext }
-            }
-        )
-    }
-    lang!(Rust, "rust");
-    lang!(Js, "js");
 
     /// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
     /// which will render the parsed template in the given language.

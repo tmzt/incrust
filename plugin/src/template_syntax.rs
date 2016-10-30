@@ -9,8 +9,8 @@ pub mod expander {
     use syntax::util::small_vector::SmallVector;
     use syntax::codemap::Span;
 
-    use template::lang::{Lang, Js, Rust};
     use incrust_common::codegen::WriteItems;
+    use incrust_common::codegen::lang::{Lang, Html, Js};
     use incrust_common::nodes::*;
     use incrust_common::nodes::template_node::{Template, TemplateNode};
     use incrust_common::nodes::template_node::parse::parse_template;
