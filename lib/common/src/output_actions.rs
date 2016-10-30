@@ -41,9 +41,10 @@ mod output_strings {
     use super::OutputAction;
     use syntax::ext::base::ExtCtxt;
     use codegen::string_writer::{WriteStrings, StringWrite};
+    use codegen::lang::{Lang, Js, Html};
 
-    impl WriteStrings for OutputAction {
-        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite) {
+    impl WriteStrings<Html> for OutputAction {
+        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite<Html>) {
             match self {
                 &OutputAction::Write(ref contents) => {
                     w.write_string(ecx, &contents);
@@ -71,26 +72,50 @@ mod output_strings {
     mod internal {
         use super::super::{OutputAction, WriteOutputActions, OutputActionWrite};
         use syntax::ext::base::ExtCtxt;
+        use codegen::lang::{Lang, Html, Js};
         use codegen::string_writer::{WriteStrings, StringWrite};
 
-        struct Wrapper<'s, 'cx> {
+        struct Wrapper<'s, 'cx, L: Lang + 's> {
             ecx: &'cx ExtCtxt<'cx>,
-            w: &'s mut StringWrite
+            w: &'s mut StringWrite<L>
         }
 
-        impl<'s, 'cx> OutputActionWrite for Wrapper<'s, 'cx> {
-            fn write_output_action(&mut self, output_action: &OutputAction) {
-                output_action.write_strings(self.ecx, self.w);
+        macro_rules! lang {
+            ($lang: ty) => {
+                impl<'s, 'cx> OutputActionWrite for Wrapper<'s, 'cx, $lang> {
+                    fn write_output_action(&mut self, output_action: &OutputAction) {
+                        output_action.write_strings(self.ecx, self.w);
+                    }
+                }
+
+                impl<S: WriteOutputActions> WriteStrings<$lang> for S {
+                    fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite<$lang>) {
+                        let mut wrapper = Wrapper { ecx: ecx, w: w };
+                        self.write_output_actions(&mut wrapper);
+                    }
+                }
             }
         }
+        lang!(Html);
+        //lang!(Js);
+    }
+}
 
-        impl<S: WriteOutputActions> WriteStrings for S {
-            fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite) {
-                let mut wrapper = Wrapper { ecx: ecx, w: w };
-                self.write_output_actions(&mut wrapper);
-            }
+mod output_ext {
+    use super::{OutputAction, WriteOutputActions};
+    use syntax::ext::base::ExtCtxt;
+    use codegen::string_writer::{WriteStrings, StringWrite};
+    use codegen::lang::{Lang};
+    use codegen::named_output_writer::{WriteNamedOutputs, NamedOutputWrite};
+
+    /*
+    impl<S: WriteOutputActions, L: Lang, D> WriteNamedOutputs<L, D> for S {
+        fn write_named_outputs<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut NamedOutputWrite<D>) {
+            let mut output_actions = vec![];
+            &self.write_output_actions(&mut output_actions);
         }
     }
+    */
 }
 
 impl OutputActionWrite for Vec<OutputAction> {

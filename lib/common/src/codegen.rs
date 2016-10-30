@@ -24,6 +24,41 @@ pub trait WriteItems {
     fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt);
 }
 
+pub mod lang {
+    use std::marker::PhantomData;
+    pub enum Html {}
+    pub enum Js {}
+
+    pub trait Lang {
+        fn ext() -> &'static str;
+    }
+
+    macro_rules! lang {
+        ($lang: ty, $ext: expr) => (
+            impl Lang for $lang {
+                fn ext() -> &'static str { $ext }
+            }
+        )
+    }
+    lang!(Html, "html");
+    lang!(Js, "js");
+
+    #[derive(Debug, Clone)]
+    pub struct NamedOutputExt<L: Lang, D> {
+        data: D,
+        _l: PhantomData<L>
+    }
+
+    impl <L: Lang, D> NamedOutputExt<L, D> {
+        pub fn create_named_output(name: &str, data: D) -> NamedOutputExt<L, D> {
+            NamedOutputExt {
+                data: data,
+                _l: PhantomData::<L>,
+            }
+        }
+    }
+}
+
 pub mod stmt_writer {
     use syntax::ext::base::ExtCtxt;
     use syntax::ast;
@@ -46,18 +81,20 @@ pub mod stmt_writer {
 pub mod string_writer {
     use syntax::ext::base::ExtCtxt;
     use syntax::ast;
+    use super::lang::Lang;
 
     /// Request the implementer to write itself out as strings
-    pub trait WriteStrings {
-        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite);
+    pub trait WriteStrings<L: Lang> {
+        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite<L>);
     }
 
-    pub trait StringWrite {
+    pub trait StringWrite<L: Lang> {
         fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str);
     }
 
     mod internal {
         use super::super::stmt_writer::{WriteStmts, StmtWrite};
+        use super::super::lang::{Lang};
         use super::{WriteStrings, StringWrite};
         use syntax::ext::base::ExtCtxt;
         use syntax::ast;
@@ -67,7 +104,7 @@ pub mod string_writer {
             inner: &'s mut StmtWrite
         }
 
-        impl<'s> StringWrite for StmtsWrapper<'s> {
+        impl<'s, L: Lang> StringWrite<L> for StmtsWrapper<'s> {
             fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
                 let writer = &self.writer;
 
@@ -79,7 +116,7 @@ pub mod string_writer {
             }
         }
 
-        impl<S: WriteStrings> WriteStmts for S {
+        impl<L: Lang> WriteStmts for WriteStrings<L> {
             fn write_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StmtWrite) {
                 let writer = ecx.ident_of("writer");
                 let mut wrapper = StmtsWrapper { writer: writer, inner: w };
@@ -133,6 +170,36 @@ mod utils {
     pub fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
         let ident = ecx.ident_of(name);
         (*ecx.resolver).add_ext(ident, ext);
+    }
+}
+
+pub mod named_output_writer {
+    use super::stmt_writer::WriteStmts;
+    use super::lang::{Lang, NamedOutputExt};
+    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ext::build::AstBuilder;
+
+    pub trait WriteNamedOutputs<L : Lang, D> {
+        fn write_named_outputs<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &mut NamedOutputWrite<D>);
+    }
+
+    pub trait NamedOutputWrite<D> {
+        fn write_named_output(&mut self, name: &str, data: D);
+    }
+
+    impl<L: Lang, D> NamedOutputWrite<D> for Vec<NamedOutputExt<L, D>> {
+        fn write_named_output(&mut self, name: &str, data: D) {
+            let ext = NamedOutputExt::<L, D>::create_named_output(name, data);
+            self.push(ext);
+        }
+    }
+
+    impl<S: WriteStmts, L: Lang, D> WriteNamedOutputs<L, D> for S {
+        fn write_named_outputs<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &mut NamedOutputWrite<D>) {
+            let mut stmts = vec![];
+            &self.write_stmts(ecx, &mut stmts);
+        }
     }
 }
 
