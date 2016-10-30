@@ -56,20 +56,6 @@ pub mod string_writer {
         fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str);
     }
 
-    /*
-    /// Request the implementer to write itself out as strings, by providing a closure
-    /// which will be provided with a writer.
-    ///
-    /// This is required to capture the needed $writer expression in the resulting statement.
-    pub trait WriteStringsUsing {
-        fn write_strings_using<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite);
-    }
-
-    pub trait WriteStringUsing {
-        fn write_string_using<'cx>(&mut self, ecx: &'cx ExtCtxt, f: Fn(&mut StringWriter));
-    }
-    */
-
     mod internal {
         use super::super::stmt_writer::{WriteStmts, StmtWrite};
         use super::{WriteStrings, StringWrite};
@@ -102,63 +88,7 @@ pub mod string_writer {
             }
         }
     }
-
-    /*
-    mod emitter {
-        use super::{WriteStrings, StringWrite};
-        use syntax::ext::base::ExtCtxt;
-        use syntax::ast;
-
-        struct Wrapper<'cx> {
-            ecx: &'cx ExtCtxt<'cx>,
-            writer: ast::Ident
-        }
-
-        trait EmitWrites {
-            fn emit_writes<'cx>(&self, ecx: &'cx ExtCtxt<'cx>);
-        }
-
-        impl<'cx> StringWrite for Wrapper<'cx> {
-            fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
-                let writer = &self.writer;
-
-                let stmt = quote_stmt!(ecx, {
-                    write!($writer, "{}", $contents).unwrap();
-                }).unwrap();
-
-                // TODO: Emit
-            }
-        }
-
-        impl<S: WriteStrings> EmitWrites for S {
-            fn emit_writes<'cx>(&self, ecx: &'cx ExtCtxt<'cx>) {
-                let writer = ecx.ident_of("writer");
-                let wrapper = Wrapper { ecx: ecx, writer: writer };
-
-                self.write_strings(ecx, &mut wrapper);
-            }
-        }
-    }
-    */
 }
-
-/*
-mod string_output {
-    use super::StringOutputStmtWrite;
-    use syntax::ext::base::ExtCtxt;
-    use syntax::ast;
-
-    impl StringOutputStmtWrite<String> for Vec<ast::Stmt> {
-        fn write_string_output_stmt<'cx>(&mut self, ecx: &'cx mut ExtCtxt, writer: ast::Ident, contents: String) {
-            let stmt = quote_stmt!(ecx, {
-                write!($writer, "{}", $contents).unwrap();
-            }).unwrap();
-
-            self.push(stmt);
-        }
-    }
-}
-*/
 
 mod utils {
     use std::rc::Rc;
