@@ -5,7 +5,7 @@ use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult};
 use syntax::ext::build::AstBuilder;
 use syntax::ptr::P;
 
-use compiled_view::CompiledView;
+use nodes::view_node::View;
 
 
 pub trait IntoViewItem {
@@ -16,9 +16,49 @@ pub trait IntoWriteStmt {
     fn into_write_stmt<'cx>(&self, ecx: &'cx ExtCtxt, w: ast::Ident) -> ast::Stmt;
 }
 
-fn create_view_item_stmts<'cx>(ecx: &'cx ExtCtxt, compiled_views: &[CompiledView]) -> Vec<ast::Stmt> {
-    let view_item_stmts: Vec<ast::Stmt> = compiled_views.iter()
-        .map(|compiled_view| compiled_view.into_view_item(ecx))
+pub trait IntoBlock {
+    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block>;
+}
+
+pub trait WriteStmts {
+    fn write_stmts<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut StmtWrite);
+}
+
+pub trait WriteItems {
+    fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite);
+}
+
+pub trait WriteStringOutputStmts {
+    fn write_string_output_stmts<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite);
+}
+
+pub trait StmtWrite {
+    fn write_stmt(&mut self, stmt: ast::Stmt);
+}
+
+pub trait StringOutputStmtWrite {
+    fn write_string_output_stmt(&mut self, contents: &str);
+}
+
+pub trait ItemWrite {
+    fn write_item(&mut self, item: P<ast::Item>);
+}
+
+mod utils {
+    use std::rc::Rc;
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ext::build::AstBuilder;
+    use syntax::ext::base::{SyntaxExtension};
+
+    pub fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
+        let ident = ecx.ident_of(name);
+        (*ecx.resolver).add_ext(ident, ext);
+    }
+}
+
+fn create_view_item_stmts<'cx>(ecx: &'cx ExtCtxt, views: &[View]) -> Vec<ast::Stmt> {
+    let view_item_stmts: Vec<ast::Stmt> = views.iter()
+        .map(|view| view.into_view_item(ecx))
         .map(|item| ecx.stmt_item(DUMMY_SP, item))
         .collect();
 
@@ -26,10 +66,10 @@ fn create_view_item_stmts<'cx>(ecx: &'cx ExtCtxt, compiled_views: &[CompiledView
 }
 
 pub fn create_template_block<'cx>(ecx: &'cx ExtCtxt,
-                              compiled_views: &[CompiledView],
+                              views: &[View],
                               call_root: bool)
                               -> Box<MacResult + 'cx> {
-    let view_item_stmts = create_view_item_stmts(ecx, compiled_views);
+    let view_item_stmts = create_view_item_stmts(ecx, views);
 
     let mut stmts = Vec::new();
     stmts.extend(view_item_stmts);
@@ -48,9 +88,9 @@ pub fn create_template_block<'cx>(ecx: &'cx ExtCtxt,
 
 pub fn create_template_write_block<'cx>(ecx: &'cx ExtCtxt,
                               w_ident: ast::Ident,
-                              compiled_views: &[CompiledView])
+                              views: &[View])
                               -> Box<MacResult + 'cx> {
-    let view_item_stmts = create_view_item_stmts(ecx, compiled_views);
+    let view_item_stmts = create_view_item_stmts(ecx, views);
 
     let mut stmts = Vec::new();
     stmts.extend(view_item_stmts);

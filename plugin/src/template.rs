@@ -14,11 +14,11 @@ use syntax::parse::parser::Parser;
 
 use itertools::Itertools;
 
+use incrust_common::nodes::*;
+
 use incrust_common::codegen;
 use incrust_common::js_write::{WriteJs, JsWrite};
 use incrust_common::output_actions::IntoOutputActions;
-use incrust_common::view::parse_view;
-use incrust_common::compiled_view::CompiledView;
 
 
 /*
@@ -44,65 +44,136 @@ macro_rules! define_named_template {
     })
 }
 
-#[derive(Debug, Clone)]
-struct NamedTemplateDecl {
-    name: String,
-    compiled_views: Vec<CompiledView>
-}
-
-enum Rust {}
-enum Js {}
 
 trait WriteBlockFactory {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
 }
 
-trait Lang {
-    fn ext() -> &'static str;
-}
+mod lang {
+    pub enum Rust {}
+    pub enum Js {}
 
-impl <L: Lang> LangSyntaxExt<L> {
-    fn create_template(name: &str, compiled_views: Vec<CompiledView>) -> LangSyntaxExt<L> {
-        let lang_ext = LangSyntaxExt {
-            decl: NamedTemplateDecl { name: String::from(name), compiled_views: compiled_views },
-            _l: PhantomData
-        };
-
-        lang_ext
+    pub trait Lang {
+        fn ext() -> &'static str;
     }
 }
 
-#[derive(Debug, Clone)]
-struct LangSyntaxExt<L: Lang> {
-    decl: NamedTemplateDecl,
-    _l: PhantomData<L>
-}
+pub mod expander {
+    use std::marker::PhantomData;
+    use syntax::ast;
+    use syntax::ext::base::{ExtCtxt, NormalTT, TTMacroExpander, MacResult, DummyResult, MacEager};
+    use syntax::tokenstream::TokenTree;
+    use syntax::util::small_vector::SmallVector;
+    use syntax::codemap::Span;
 
-/// Define TTMacroExpander for the given language, used the WriteBlockFactory trait above.
-macro_rules! lang_expander {
-    ($lang: ty) => (
-        impl TTMacroExpander for LangSyntaxExt<$lang> {
-            fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
-               // self.decl.expand(ecx, span, tts)
-                let mut parser = ecx.new_parser_from_tts(tts);
-                let w_ident = parser.parse_ident().unwrap();
-                self.create_write_block(ecx, w_ident)
+    use super::lang::{Lang, Js, Rust};
+    use incrust_common::nodes::*;
+    use incrust_common::nodes::template_node::{Template, TemplateNode};
+
+    #[derive(Debug, Clone)]
+    struct LangSyntaxExt<L: Lang> {
+        decl: Template,
+        _l: PhantomData<L>
+    }
+
+    impl <L: Lang> LangSyntaxExt<L> {
+        /*
+        fn create_template(name: &str, compiled_views: Vec<CompiledView>) -> LangSyntaxExt<L> {
+            let lang_ext = LangSyntaxExt {
+                decl: Template { name: String::from(name), compiled_views: compiled_views },
+                _l: PhantomData
+            };
+
+            lang_ext
+        }
+        */
+    }
+
+    /// Define TTMacroExpander for the given language, used the WriteBlockFactory trait above.
+    macro_rules! lang_expander {
+        ($lang: ty) => (
+            /*
+            use syntax::ext::base::{ExtCtxt, NormalTT, TTMacroExpander, MacResult};
+
+            impl TTMacroExpander for LangSyntaxExt<$lang> {
+                fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+                // self.decl.expand(ecx, span, tts)
+                    let mut parser = ecx.new_parser_from_tts(tts);
+                    let w_ident = parser.parse_ident().unwrap();
+                    self.create_write_block(ecx, w_ident)
+                }
+            }
+            */
+        )
+    }
+    lang_expander!(Rust);
+    lang_expander!(Js);
+
+    macro_rules! lang {
+        ($lang: ty, $ext: expr) => (
+            impl Lang for $lang {
+                fn ext() -> &'static str { $ext }
+            }
+        )
+    }
+    lang!(Rust, "rust");
+    lang!(Js, "js");
+
+    /// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
+    /// which will render the parsed template in the given language.
+    pub fn expand_define_template<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
+        use incrust_common::nodes::template_node::parse::parse_template;
+
+        let mut parser = ecx.new_parser_from_tts(&tts);
+
+        match parse_template(ecx, &mut parser, span) {
+            Ok(template) => {
+                // TODO: Implement
+
+                // Empty (but must consist of items)
+                MacEager::items(SmallVector::zero())
+            },
+
+            Err(mut err) => {
+                err.emit();
+                DummyResult::expr(span)
             }
         }
-    )
-}
-lang_expander!(Rust);
-lang_expander!(Js);
 
-macro_rules! lang {
-    ($lang: ty, $ext: expr) => (
-        impl Lang for $lang {
-            fn ext() -> &'static str { $ext }
+        /*
+        match parse_template(ecx, &mut parser, span) {
+            Ok(template) => {
+                let views = template.views();
+                define_named_template!(ecx, ident, Rust, "rust", compiled_views);
+                define_named_template!(ecx, ident, Js, "js", compiled_views);
+
+                // Empty (but must consist of items)
+                MacEager::items(SmallVector::zero())
+            }
         }
-    )
+        */
+
+        /*
+        match parse_template_into_compiled_view(ecx, span, &mut parser) {
+            Ok(compiled_view) => {
+                // TODO: Implement
+
+                // Empty (but must consist of items)
+                MacEager::items(SmallVector::zero())            
+            },
+
+            Err(mut err) => {
+                err.emit();
+                DummyResult::expr(span)
+            }
+        }
+        */
+
+    }
 }
-lang!(Rust, "rust");
-lang!(Js, "js");
+
+/*
+use lang::{Js, Rust};
 
 impl WriteBlockFactory for LangSyntaxExt<Rust> {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
@@ -124,44 +195,4 @@ impl WriteBlockFactory for LangSyntaxExt<Js> {
         codegen::create_write_statements_block(ecx, w_ident, funcs.as_slice())
     }
 }
-
-impl TTMacroExpander for NamedTemplateDecl {
-    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
-        let mut parser = ecx.new_parser_from_tts(tts);
-        let w_ident = parser.parse_ident().unwrap();
-        codegen::create_template_write_block(ecx, w_ident, &self.compiled_views)
-    }
-}
-
-fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
-                                                                            -> PResult<'a, CompiledView> {
-    let view = try!(parse_view(ecx, parser, span));
-    let output_actions = view.into_output_actions(ecx);
-    ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
-
-    let name = String::from(view.name());
-    Ok(CompiledView::from_output_actions(name, output_actions))
-}
-
-/// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
-/// which will render the parsed template in the given language.
-pub fn expand_define_template<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
-    let mut parser = ecx.new_parser_from_tts(&tts);
-
-    match parse_template_into_compiled_view(ecx, span, &mut parser) {
-        Ok(compiled_view) => {
-            let compiled_views = vec![compiled_view];
-            define_named_template!(ecx, ident, Rust, "rust", compiled_views);
-            define_named_template!(ecx, ident, Js, "js", compiled_views);
-
-            // Empty (but must consist of items)
-            MacEager::items(SmallVector::zero())
-        },
-
-        Err(mut err) => {
-            err.emit();
-            DummyResult::expr(span)
-        }
-    }
-
-}
+*/

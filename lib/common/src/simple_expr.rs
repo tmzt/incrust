@@ -66,43 +66,80 @@ impl SimpleExprWrite for Vec<SimpleExprToken> {
 pub mod parse {
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::parse::token::BinOpToken as binops;
+    use syntax::parse::token::Lit as literals;
     use syntax::ext::base::ExtCtxt;
     use syntax::parse::{token, PResult};
     use syntax::parse::parser::Parser;
-    use super::{SimpleExpr, SimpleExprWrite};
+    use super::{SimpleExpr, SimpleExprToken, SimpleExprWrite};
 
-    fn parse_expr_into<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, w: &mut SimpleExprWrite) -> PResult<'a, ()> {
+    fn parse_var_reference<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, SimpleExprToken> {
+        // NEXTREV: Add JsPathExpr variant
+
+        let mut var_name = String::new();
         loop {
             match parser.token {
-                token::BinOp(binops::Plus) => {
+                token::Ident(ref ident) => {
+                    var_name.push_str(&ident.name.to_string());
+                },
+                token::Dot => {
+                    var_name.push('.');
+                },
+                _ => {
+                    ecx.span_warn(span, "Invalid token in VarReference - complete");
+                    break;
+                }
+            }
+        }
+        Ok(SimpleExprToken::VarReference(var_name.to_owned()))
+    }
+
+    fn parse_expr_into<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, w: &mut SimpleExprWrite) -> PResult<'a, ()> {
+        // Consume opening brace
+        parser.bump();
+
+        loop {
+            if let &token::CloseDelim(token::Brace) = &parser.token {
+                ecx.span_warn(span, "Got close expression - completed expression");
+                parser.bump();
+                break;
+            };
+
+            if let &token::Ident(_) = &parser.token {
+                match parse_var_reference(ecx, &mut parser, span) {
+                    Ok(SimpleExprToken::VarReference(ref var_name)) => {
+                        w.var_reference(var_name);
+                    },
+                    _ => { ecx.span_warn(span, "Unable to parse VarReference for this ident"); }
+                };
+                continue;
+            };
+
+            match &parser.token {
+                &token::Literal(literals::Str_(ref contents), _) => {
+                    let string_value = &contents.to_string();
+
+                    ecx.span_warn(span, &format!("Parsing expression - got literal: {:?}", &string_value));
+                    w.string_lit(&string_value);
+                },
+
+                &token::BinOp(binops::Plus) => {
                     w.binop_plus();
                 },
 
-                token::BinOp(binops::Minus) => {
+                &token::BinOp(binops::Minus) => {
                     w.binop_minus();
                 },
 
-                token::Ident(ref ident) => {
-                    w.var_reference(&ident.name.to_string());
-                },
-
-                token::CloseDelim(token::Bracket) => {
-                    ecx.span_warn(span, "Got close expression - complete");
-                    break;
-                },
-
-                token::OpenDelim(token::Paren) => {
-                    ecx.span_warn(span, "Got close expression - complete");
+                &token::OpenDelim(token::Paren) => {
                     w.open_paren();
                 },
 
-                token::CloseDelim(token::Paren) => {
-                    ecx.span_warn(span, "Got close expression - complete");
+                &token::CloseDelim(token::Paren) => {
                     w.close_paren();
                 },
 
                 _ => {
-                    ecx.span_warn(span, "Parsing expression - unknown token");
+                    ecx.span_err(span, &format!("Parsing expression - unknown token: {:?}", &parser.token));
                 }
             }
             parser.bump();
@@ -117,6 +154,18 @@ pub mod parse {
 
         let simple_expr = SimpleExpr { span: span, tokens: tokens };
         Ok(simple_expr)
+    }
+}
+
+pub mod output {
+    use super::{SimpleExpr, SimpleExprToken};
+    use output_actions::{OutputAction, IntoOutputActions};
+    use syntax::ext::base::ExtCtxt;
+
+    impl IntoOutputActions for SimpleExpr {
+        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+            vec![OutputAction::WriteResult(self.clone())]
+        }
     }
 }
 
@@ -155,18 +204,6 @@ pub mod output_ast {
                 }).unwrap();
 
             stmt
-        }
-    }
-}
-
-pub mod output_actions {
-    use super::{SimpleExpr, SimpleExprToken};
-    use output_actions::{OutputAction, IntoOutputActions};
-    use syntax::ext::base::ExtCtxt;
-
-    impl IntoOutputActions for SimpleExpr {
-        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-            vec![OutputAction::WriteResult(self.clone())]
         }
     }
 }

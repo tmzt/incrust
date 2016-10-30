@@ -1,8 +1,6 @@
 
 use std::fmt::Write;
 
-use incrust_common::compiled_view::CompiledView;
-
 
 macro_rules! script_src {
     ($uri:expr) => (concat!["<script src=\"", $uri, "\"></script>"])

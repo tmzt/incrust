@@ -25,7 +25,7 @@ mod expr;
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_syntax_extension(token::intern("define_template"),
-            IdentTT(Box::new(template::expand_define_template), None, false));
+            IdentTT(Box::new(template::expander::expand_define_template), None, false));
 
     // Store definitions
     actions::register_store(reg);
