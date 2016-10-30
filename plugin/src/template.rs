@@ -60,7 +60,6 @@ mod output_data {
     use std::marker::PhantomData;
     use syntax::ext::base::ExtCtxt;
     use incrust_common::js_write::WriteJs;
-    use incrust_common::codegen::WriteStringOutputStmts;
 
     trait ToData<L: Lang, D> {
         fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> D;
@@ -74,6 +73,7 @@ mod output_data {
         }
     }
 
+    /*
     impl<W: WriteStringOutputStmts> ToData<Rust, Vec<ast::Stmt>> for W {
         fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<ast::Stmt> {
             let mut data = Vec::new();
@@ -81,6 +81,7 @@ mod output_data {
             data
         }
     }
+    */
 }
 
 mod output_definer {

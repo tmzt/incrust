@@ -175,12 +175,18 @@ pub mod parse {
 
 pub mod output {
     use super::{SimpleExpr, SimpleExprToken};
-    use output_actions::{OutputAction, IntoOutputActions};
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
     use syntax::ext::base::ExtCtxt;
 
     impl IntoOutputActions for SimpleExpr {
         fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
             vec![OutputAction::WriteResult(self.clone())]
+        }
+    }
+
+    impl WriteOutputActions for SimpleExpr {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            w.write_output_action(&OutputAction::WriteResult(self.clone()));
         }
     }
 }

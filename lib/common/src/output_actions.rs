@@ -12,6 +12,10 @@ use simple_expr::{SimpleExpr, js_write};
 use js_write::{WriteJs, JsWrite, WriteJsSimpleExpr};
 
 
+pub trait WriteOutputActions {
+    fn write_output_actions(&self, w: &mut OutputActionWrite);
+}
+
 pub trait OutputActionWrite {
     fn write_output_action(&mut self, output_action: &OutputAction);
 }
@@ -32,6 +36,62 @@ pub enum OutputAction {
     WriteOpen(String),
     WriteClose(String),
     WriteVoid(String),
+}
+
+mod output_strings {
+    use super::OutputAction;
+    use syntax::ext::base::ExtCtxt;
+    use codegen::string_writer::{WriteStrings, StringWrite};
+
+    impl WriteStrings for OutputAction {
+        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite) {
+            match self {
+                &OutputAction::Write(ref contents) => {
+                    w.write_string(ecx, &contents);
+                },
+
+                &OutputAction::WriteResult(ref simple_expr) => {
+                    &simple_expr.write_strings(ecx, w);
+                },
+
+                &OutputAction::WriteOpen(ref element_type) => {
+                    w.write_string(ecx, &format!("<{}>", &element_type));
+                },
+
+                &OutputAction::WriteClose(ref element_type) => {
+                    w.write_string(ecx, &format!("</{}>", &element_type));
+                },
+
+                &OutputAction::WriteVoid(ref element_type) => {
+                    w.write_string(ecx, &format!("<{} />", &element_type));
+                }
+            }
+        }
+    }
+
+    mod internal {
+        use super::super::{OutputAction, WriteOutputActions, OutputActionWrite};
+        use syntax::ext::base::ExtCtxt;
+        use codegen::string_writer::{WriteStrings, StringWrite};
+
+        struct Wrapper<'s, 'cx> {
+            ecx: &'cx ExtCtxt<'cx>,
+            w: &'s mut StringWrite
+        }
+
+        impl<'s, 'cx> OutputActionWrite for Wrapper<'s, 'cx> {
+            fn write_output_action(&mut self, output_action: &OutputAction) {
+                output_action.write_strings(self.ecx, self.w);
+            }
+        }
+
+        impl<S: WriteOutputActions> WriteStrings for S {
+            fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite) {
+                let mut wrapper = Wrapper { ecx: ecx, w: w };
+                self.write_output_actions(&mut wrapper);
+            }
+        }
+    }
 }
 
 impl OutputActionWrite for Vec<OutputAction> {

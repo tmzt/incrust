@@ -16,10 +16,13 @@ pub mod expander {
     use incrust_common::nodes::template_node::parse::parse_template;
 
     fn process_contents<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, mut parser: &mut Parser) -> Box<MacResult + 'cx> {
-        let template_name = ident.name.to_string().to_owned();
+        let template_name = ident.name.to_string();
+        ecx.span_warn(span, &format!("Parsing contents of template {}", &template_name));
 
         match parse_template(ecx, &mut parser, span, &template_name) {
             Ok(template) => {
+                ecx.span_warn(span, &format!("Parsed template: {:?}", &template));
+
                 // Emit items for each node in the template
                 template.write_items(ecx);
 

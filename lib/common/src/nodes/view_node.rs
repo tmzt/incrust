@@ -93,24 +93,16 @@ mod output {
 }
 
 mod output_ast {
-    use syntax::ast;
-    use syntax::codemap::{Span, DUMMY_SP};
-    use syntax::ext::base::ExtCtxt;
-    use syntax::ext::quote::rt::ToTokens;
-    use syntax::tokenstream::TokenTree;
-    use syntax::parse::token::BinOpToken as binops;
-    use syntax::parse::{token, PResult};
-}
-
-mod codegen {
     use super::View;
     use syntax::ast;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::build::AstBuilder;
     use syntax::ptr::P;
-    use codegen::{WriteItems, WriteStringOutputStmts, StringOutputStmtWrite, IntoBlock};
+    use output_actions::{OutputAction};
+    use codegen::WriteItems;
 
+    /*
     fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
         let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
         let block = view.into_block(ecx);
@@ -119,19 +111,44 @@ mod codegen {
         let ret_ty = quote_ty!(ecx, String);
         ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
     }
+    */
+
+    /*
+    fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
+    }
+    */
 
     impl WriteItems for View {
         fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
-            let item = create_view_item(ecx, &self);
-            ecx.stmt_item(DUMMY_SP, item);
+            //let item = create_view_item(ecx, &self);
+            //ecx.stmt_item(DUMMY_SP, item);
         }
     }
 
-    impl WriteStringOutputStmts for View {
-        fn write_string_output_stmts<'cx, C>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite<C>) {
-            // TODO: Output something
+    /*
+    impl IntoBlock for View {
+        fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
+            let mut stmts: Vec<ast::Stmt> = vec![];
+            view.write_strings()
+            view.write_string_output_stmts()
         }
     }
+    */
+
+    /*
+    impl WriteItems for View {
+        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
+            let mut output_actions: Vec<OutputAction> = vec![];
+            for node in &self.nodes {
+                node.write_output_actions(output_actions);
+                node.write_items(ecx);
+            }
+        }
+    }
+    */
+}
+
+mod codegen {
 
     /*
     fn create_view_item_stmts<'cx>(ecx: &'cx ExtCtxt, views: &[View]) -> Vec<ast::Stmt> {
@@ -145,6 +162,7 @@ mod codegen {
     */
 }
 
+/*
 mod output_items {
     use super::View;
     use syntax::ast;
@@ -196,3 +214,4 @@ mod output_items {
         }
     }
 }
+*/

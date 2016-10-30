@@ -28,18 +28,89 @@ pub trait WriteItems {
     fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt);
 }
 
-pub trait WriteStringOutputStmts {
-    fn write_string_output_stmts<'cx, C>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite<C>);
-}
-
 pub trait StmtWrite {
     fn write_stmt(&mut self, stmt: ast::Stmt);
 }
 
-pub trait StringOutputStmtWrite<C> {
-    fn write_string_output_stmt<'cx>(&mut self, ecx: &'cx mut ExtCtxt, writer: ast::Ident, contents: C);
+pub mod string_writer {
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
+
+    /*
+    /// Request the implementer to write itself out as strings
+    pub trait WriteStringsTo {
+        fn write_strings_to<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut WriteStrings);
+    }
+    */
+
+    /*
+    pub trait WriteStrings {
+        fn write_strings<'cx>(&mut self, ecx: &'cx ExtCtxt, f: Fn(&mut StringWrite, ast::Ident));
+    }
+    */
+
+    pub trait WriteStrings {
+        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite);
+    }
+
+    pub trait StringWrite {
+        fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str);
+    }
+
+    mod internal {
+        use super::{WriteStrings, StringWrite};
+        use syntax::ext::base::ExtCtxt;
+        use syntax::ast;
+
+        /*
+        trait StringWriterInternal {
+            fn write_string_internal<'cx>(&mut self, ecx: &'cx ExtCtxt, writer: ast::Ident, contents: &str);
+        }
+        */
+
+        struct StmtsWrapper<'s> {
+            writer: ast::Ident,
+            inner: &'s mut Vec<ast::Stmt>
+        }
+
+        /*
+        impl<'s> StringWriterInternal for StmtsWrapper<'s> {
+            fn write_string_internal<'cx>(&mut self, ecx: &'cx ExtCtxt, writer: ast::Ident, contents: &str) {
+                let stmt = quote_stmt!(ecx, {
+                    write!($writer, "{}", $contents).unwrap();
+                }).unwrap();
+
+                self.push(stmt);
+            }
+        }
+        */
+
+        impl<'s> StringWrite for StmtsWrapper<'s> {
+            fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
+                let writer = &self.writer;
+
+                let stmt = quote_stmt!(ecx, {
+                    write!($writer, "{}", $contents).unwrap();
+                }).unwrap();
+
+                self.inner.push(stmt);
+            }
+        }
+
+        /*
+        impl WriteStrings for Vec<ast::Stmt> {
+            fn write_strings<'cx>(&mut self, ecx: &'cx ExtCtxt, f: Fn(&mut StringWrite, ast::Ident)) {
+                let writer = ecx.ident_of("writer");
+                let wrapper = StmtsWrapper { writer: writer, inner: &mut self };
+
+                f(&mut wrapper, writer);
+            }
+        }
+        */
+    }
 }
 
+/*
 mod string_output {
     use super::StringOutputStmtWrite;
     use syntax::ext::base::ExtCtxt;
@@ -55,6 +126,7 @@ mod string_output {
         }
     }
 }
+*/
 
 mod utils {
     use std::rc::Rc;
@@ -68,6 +140,7 @@ mod utils {
     }
 }
 
+/*
 fn create_view_item_stmts<'cx>(ecx: &'cx ExtCtxt, views: &[View]) -> Vec<ast::Stmt> {
     let view_item_stmts: Vec<ast::Stmt> = views.iter()
         .map(|view| view.into_view_item(ecx))
@@ -131,3 +204,4 @@ pub fn create_write_statements_block<'cx>(ecx: &'cx ExtCtxt, w_ident: ast::Ident
     let block = ecx.block(DUMMY_SP, write_stmts);
     MacEager::expr(ecx.expr_block(block))
 }
+*/

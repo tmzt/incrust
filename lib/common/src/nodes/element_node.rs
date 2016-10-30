@@ -45,7 +45,7 @@ pub mod parse {
 pub mod output {
     use super::Element;
     use syntax::ext::base::ExtCtxt;
-    use output_actions::{OutputAction, IntoOutputActions};
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for Element {
         fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
@@ -63,6 +63,14 @@ pub mod output {
             output_actions.push(OutputAction::WriteClose(element_type.clone()));
 
             output_actions
+        }
+    }
+
+    impl WriteOutputActions for Element {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            for node in &self.nodes {
+                &node.write_output_actions(w);
+            }
         }
     }
 }

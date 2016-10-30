@@ -34,10 +34,6 @@ pub mod simple_expr;
 pub mod js_write;
 pub mod nodes;
 
-use nodes::view_node::View;
-
-use codegen::{IntoWriteStmt, create_template_block};
-use output_actions::{OutputAction, IntoOutputActions};
 
 /*
 pub fn tts_to_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, mut parser: &mut Parser<'a>, tts: &[TokenTree]) -> PResult<'a, Template> {

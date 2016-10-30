@@ -101,7 +101,7 @@ pub mod parse {
 
 pub mod output_ast {
     use super::ContentNode;
-    use output_actions::{OutputAction, IntoOutputActions};
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
     use syntax::ext::base::ExtCtxt;
 
     impl IntoOutputActions for ContentNode {
@@ -109,6 +109,20 @@ pub mod output_ast {
             match self {
                 &ContentNode::ElementNode(ref element) => element.into_output_actions(ecx),
                 &ContentNode::ExprNode(ref simple_expr) => simple_expr.into_output_actions(ecx)
+            }
+        }
+    }
+
+    impl WriteOutputActions for ContentNode {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            match self {
+                &ContentNode::ElementNode(ref element) => {
+                    element.write_output_actions(w);
+                },
+
+                &ContentNode::ExprNode(ref simple_expr) => {
+                    simple_expr.write_output_actions(w);
+                }
             }
         }
     }
@@ -120,6 +134,7 @@ pub mod output_ast_literal {
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::quote::rt::ToTokens;
+    use output_actions::{WriteOutputActions, OutputActionWrite, OutputAction};
 
     impl ToTokens for ContentLiteral {
         fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
@@ -137,6 +152,22 @@ pub mod output_ast_literal {
             };
 
             val.to_tokens(ecx)
+        }
+    }
+
+    impl WriteOutputActions for ContentLiteral {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            self.val.write_output_actions(w);
+        }
+    }
+
+    impl WriteOutputActions for LitValue {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            match self {
+                &LitValue::LitString(ref contents) => {
+                    w.write_output_action(&OutputAction::Write(contents.to_owned()));
+                }
+            }
         }
     }
 }
