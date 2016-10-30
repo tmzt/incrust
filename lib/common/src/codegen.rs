@@ -20,16 +20,27 @@ pub trait IntoBlock {
     fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block>;
 }
 
-pub trait WriteStmts {
-    fn write_stmts<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut StmtWrite);
-}
-
 pub trait WriteItems {
     fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt);
 }
 
-pub trait StmtWrite {
-    fn write_stmt(&mut self, stmt: ast::Stmt);
+pub mod stmt_writer {
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
+
+    pub trait WriteStmts {
+        fn write_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StmtWrite);
+    }
+
+    pub trait StmtWrite {
+        fn write_stmt(&mut self, stmt: ast::Stmt);
+    }
+
+    impl<'s> StmtWrite for Vec<ast::Stmt> {
+        fn write_stmt(&mut self, stmt: ast::Stmt) {
+            self.push(stmt);
+        }
+    }
 }
 
 pub mod string_writer {
@@ -45,14 +56,29 @@ pub mod string_writer {
         fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str);
     }
 
+    /*
+    /// Request the implementer to write itself out as strings, by providing a closure
+    /// which will be provided with a writer.
+    ///
+    /// This is required to capture the needed $writer expression in the resulting statement.
+    pub trait WriteStringsUsing {
+        fn write_strings_using<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite);
+    }
+
+    pub trait WriteStringUsing {
+        fn write_string_using<'cx>(&mut self, ecx: &'cx ExtCtxt, f: Fn(&mut StringWriter));
+    }
+    */
+
     mod internal {
+        use super::super::stmt_writer::{WriteStmts, StmtWrite};
         use super::{WriteStrings, StringWrite};
         use syntax::ext::base::ExtCtxt;
         use syntax::ast;
 
         struct StmtsWrapper<'s> {
             writer: ast::Ident,
-            inner: &'s mut Vec<ast::Stmt>
+            inner: &'s mut StmtWrite
         }
 
         impl<'s> StringWrite for StmtsWrapper<'s> {
@@ -63,21 +89,57 @@ pub mod string_writer {
                     write!($writer, "{}", $contents).unwrap();
                 }).unwrap();
 
-                self.inner.push(stmt);
+                self.inner.write_stmt(stmt);
             }
         }
 
-        /*
-        impl WriteStrings for Vec<ast::Stmt> {
-            fn write_strings<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut StringWrite) {
+        impl<S: WriteStrings> WriteStmts for S {
+            fn write_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StmtWrite) {
                 let writer = ecx.ident_of("writer");
-                let wrapper = StmtsWrapper { writer: writer, inner: &mut self };
+                let mut wrapper = StmtsWrapper { writer: writer, inner: w };
 
-                f(&mut wrapper, writer);
+                self.write_strings(ecx, &mut wrapper);
             }
         }
-        */
     }
+
+    /*
+    mod emitter {
+        use super::{WriteStrings, StringWrite};
+        use syntax::ext::base::ExtCtxt;
+        use syntax::ast;
+
+        struct Wrapper<'cx> {
+            ecx: &'cx ExtCtxt<'cx>,
+            writer: ast::Ident
+        }
+
+        trait EmitWrites {
+            fn emit_writes<'cx>(&self, ecx: &'cx ExtCtxt<'cx>);
+        }
+
+        impl<'cx> StringWrite for Wrapper<'cx> {
+            fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
+                let writer = &self.writer;
+
+                let stmt = quote_stmt!(ecx, {
+                    write!($writer, "{}", $contents).unwrap();
+                }).unwrap();
+
+                // TODO: Emit
+            }
+        }
+
+        impl<S: WriteStrings> EmitWrites for S {
+            fn emit_writes<'cx>(&self, ecx: &'cx ExtCtxt<'cx>) {
+                let writer = ecx.ident_of("writer");
+                let wrapper = Wrapper { ecx: ecx, writer: writer };
+
+                self.write_strings(ecx, &mut wrapper);
+            }
+        }
+    }
+    */
 }
 
 /*
