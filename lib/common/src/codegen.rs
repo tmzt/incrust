@@ -90,6 +90,40 @@ pub mod string_writer {
     }
 }
 
+pub mod block_writer {
+    use super::stmt_writer::{WriteStmts, StmtWrite};
+    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
+    use syntax::ptr::P;
+    use syntax::ext::build::AstBuilder;
+
+    /// Request the implementer to write itself out as blocks
+    pub trait WriteBlocks {
+        fn write_blocks<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut BlockWrite);
+    }
+
+    pub trait BlockWrite {
+        fn write_block<'cx>(&mut self, ecx: &'cx ExtCtxt, block: P<ast::Block>);
+    }
+
+    impl<'s> BlockWrite for Vec<P<ast::Block>> {
+        fn write_block<'cx>(&mut self, ecx: &'cx ExtCtxt, block: P<ast::Block>) {
+            self.push(block);
+        }
+    }
+
+    impl<S: WriteStmts> WriteBlocks for S {
+        fn write_blocks<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut BlockWrite) {
+            let mut stmts = vec![];
+            &self.write_stmts(ecx, &mut stmts);
+
+            let block = ecx.block(DUMMY_SP, stmts);
+            w.write_block(ecx, block);
+        }
+    }
+}
+
 mod utils {
     use std::rc::Rc;
     use syntax::ext::base::ExtCtxt;
