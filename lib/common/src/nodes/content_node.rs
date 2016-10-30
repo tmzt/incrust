@@ -35,28 +35,48 @@ pub mod parse {
     use syntax::ext::quote::rt::ToTokens;
     use syntax::parse::{token, PResult};
     use syntax::parse::parser::Parser;
+    use nodes::element_node::parse::parse_element;
 
     use output_actions::{OutputAction, IntoOutputActions};
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr;
 
     fn parse_expr_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, ContentNode> {
+        try!(parser.expect(&token::OpenDelim(token::Brace)));
+
         let simple_expr = try!(parse_simple_expr(ecx, &mut parser, span));
         Ok(ContentNode::ExprNode(simple_expr))
     }
 
-    pub fn parse_contents<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, Vec<ContentNode>> {
+    #[derive(Clone, Debug)]
+    pub enum NodeType {
+        Root,
+        Named(String)
+    }
+
+    pub fn parse_contents<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, node_type: &NodeType) -> PResult<'a, Vec<ContentNode>> {
         let mut nodes: Vec<ContentNode> = Vec::new();
 
         loop {
             match parser.token {
-                token::Ident(_) => {
-                    if let token::Ident(ref ident) = parser.token {
-                        let element_type = ident.name.to_string().to_owned();
-                        ecx.span_warn(span, &format!("Parsing contents - got element type: {:?}", &element_type));
+                token::CloseDelim(token::Bracket) => {
+                    ecx.span_warn(span, &format!("Parsing contents ({:?}) - complete", &node_type));
+                    break;
+                },
 
-                        // TODO: Parse element
+                token::Ident(_) => {
+                    let element = try!(parse_element(ecx, parser, span, node_type));
+                    nodes.push(ContentNode::ElementNode(element));
+
+                    /*
+                    if let token::Ident(ref ident) = parser.token {
+                        let element_type = ident.name.to_string();
+                        ecx.span_warn(span, &format!("Parsing contents ({:?}) - got element type: {:?}", &node_type, &element_type));
+
+                        let element = try!(parse_element(ecx, parser, span, &element_type));
+                        nodes.push(ContentNode::ElementNode(element));
                     }
+                    */
                 },
 
                 token::OpenDelim(token::Brace) => {
@@ -64,19 +84,15 @@ pub mod parse {
                     // NEXTREV: Handle literal differently, so it can be statically compiled
                     ecx.span_warn(span, "Parsing contents - got open expression");
                     let node = try!(parse_expr_node(ecx, &mut parser, span));
+                    ecx.span_warn(span, &format!("Parsing contents - expression: {:?}", &node));
                     nodes.push(node);
-                    break;
-                },
-
-                token::CloseDelim(token::Bracket) => {
-                    ecx.span_warn(span, "Parsing contents - complete");
-                    break;
                 },
 
                 _ => {
-                    ecx.span_err(span, &format!("Parsing contents - unknown token: {:?}", &parser.token));
+                    ecx.span_err(span, &format!("Parsing contents ({:?}) - unknown token: {:?}", &node_type, &parser.token));
                 }
             }
+            parser.bump();
         }
 
         Ok(nodes)

@@ -12,6 +12,10 @@ use simple_expr::{SimpleExpr, js_write};
 use js_write::{WriteJs, JsWrite, WriteJsSimpleExpr};
 
 
+pub trait OutputActionWrite {
+    fn write_output_action(&mut self, output_action: &OutputAction);
+}
+
 pub trait IntoOutputActions {
     fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction>;
 }
@@ -28,6 +32,12 @@ pub enum OutputAction {
     WriteOpen(String),
     WriteClose(String),
     WriteVoid(String),
+}
+
+impl OutputActionWrite for Vec<OutputAction> {
+    fn write_output_action(&mut self, output_action: &OutputAction) {
+        self.push(output_action.clone());
+    }
 }
 
 impl ToTokens for OutputAction {

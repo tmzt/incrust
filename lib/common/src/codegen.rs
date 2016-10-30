@@ -25,23 +25,35 @@ pub trait WriteStmts {
 }
 
 pub trait WriteItems {
-    fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite);
+    fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt);
 }
 
 pub trait WriteStringOutputStmts {
-    fn write_string_output_stmts<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite);
+    fn write_string_output_stmts<'cx, C>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite<C>);
 }
 
 pub trait StmtWrite {
     fn write_stmt(&mut self, stmt: ast::Stmt);
 }
 
-pub trait StringOutputStmtWrite {
-    fn write_string_output_stmt(&mut self, contents: &str);
+pub trait StringOutputStmtWrite<C> {
+    fn write_string_output_stmt<'cx>(&mut self, ecx: &'cx mut ExtCtxt, writer: ast::Ident, contents: C);
 }
 
-pub trait ItemWrite {
-    fn write_item(&mut self, item: P<ast::Item>);
+mod string_output {
+    use super::StringOutputStmtWrite;
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
+
+    impl StringOutputStmtWrite<String> for Vec<ast::Stmt> {
+        fn write_string_output_stmt<'cx>(&mut self, ecx: &'cx mut ExtCtxt, writer: ast::Ident, contents: String) {
+            let stmt = quote_stmt!(ecx, {
+                write!($writer, "{}", $contents).unwrap();
+            }).unwrap();
+
+            self.push(stmt);
+        }
+    }
 }
 
 mod utils {

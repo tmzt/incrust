@@ -18,8 +18,121 @@ use incrust_common::nodes::*;
 
 use incrust_common::codegen;
 use incrust_common::js_write::{WriteJs, JsWrite};
-use incrust_common::output_actions::IntoOutputActions;
+use incrust_common::output_actions::{OutputActionWrite, IntoOutputActions};
 
+
+pub trait DefineNamedOutputs {
+    fn define_named_outputs<'cx>(&self, ecx: &'cx mut ExtCtxt, w: &mut NamedOutputDefiner);
+}
+
+pub trait NamedOutputDefiner {
+    fn define_named_output<'cx>(&self, ecx: &'cx mut ExtCtxt, output_name: &str, f: Fn(&mut OutputActionWrite));
+}
+
+pub mod lang {
+    use std::marker::PhantomData;
+    pub enum Rust {}
+    pub enum Js {}
+
+    pub trait Lang {
+        fn ext() -> &'static str;
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct NamedOutputExt<L: Lang, D> {
+        data: D,
+        _l: PhantomData<L>
+    }
+
+    impl <L: Lang, D> NamedOutputExt<L, D> {
+        fn create_named_output(name: &str, data: D) -> NamedOutputExt<L, D> {
+            NamedOutputExt {
+                data: data,
+                _l: PhantomData::<L>,
+            }
+        }
+    }
+}
+
+mod output_data {
+    use super::lang::{Lang, Js, Rust};
+    use syntax::ast;
+    use std::marker::PhantomData;
+    use syntax::ext::base::ExtCtxt;
+    use incrust_common::js_write::WriteJs;
+    use incrust_common::codegen::WriteStringOutputStmts;
+
+    trait ToData<L: Lang, D> {
+        fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> D;
+    }
+
+    impl<W: WriteJs> ToData<Js, String> for W {
+        fn to_data<'cx>(&self, _: &'cx ExtCtxt) -> String {
+            let mut data = String::new();
+            self.write_js(&mut data);
+            data
+        }
+    }
+
+    impl<W: WriteStringOutputStmts> ToData<Rust, Vec<ast::Stmt>> for W {
+        fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<ast::Stmt> {
+            let mut data = Vec::new();
+            self.write_string_output_stmts(ecx, &mut data);
+            data
+        }
+    }
+}
+
+mod output_definer {
+    use super::{DefineNamedOutputs, NamedOutputDefiner};
+    use super::lang::{Lang, NamedOutputExt, Js, Rust};
+
+    use std::rc::Rc;
+    use std::marker::PhantomData;
+
+    use syntax::ast;
+    use syntax::ext::base::{ExtCtxt, SyntaxExtension, NormalTT, TTMacroExpander, MacResult, DummyResult, MacEager};
+    use syntax::tokenstream::TokenTree;
+    use syntax::codemap::Span;
+
+    use incrust_common::output_actions::OutputActionWrite;
+    use incrust_common::nodes::template_node::{Template, TemplateNode};
+    use incrust_common::nodes::view_node::{View};
+
+    fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
+        let ident = ecx.ident_of(name);
+        (*ecx.resolver).add_ext(ident, ext);
+    }
+
+    macro_rules! define_named_output {
+        ($ecx: ident, $name: ident, $lang: expr, $ty: expr, $data: expr) => ({
+            // TODO: Make the name more robust, include a uuid of some type
+            let ext_name = &format!("emit_output_{}_{}", stringify!($lang), stringify!($name));
+            let ext = NamedOutputExt::<$lang, $ty>::create_named_output(ext_name, $data);
+            define_ext($ecx, ext_name, Rc::new(NormalTT(Box::new(ext), None, true)));
+        })
+    }
+
+    /*
+    macro_rules! define_named_template {
+        ($ecx: ident, $name: ident, $ty:ident, $lang: expr, $views:expr) => ({
+            let name = $name.name.to_string();
+            let ext_name = &format!("emit_{}_view_{}", $lang, name);
+            let ext = LangSyntaxExt::<$ty>::create_template(&name, $views.clone());
+            define_ext($ecx, ext_name, Rc::new(NormalTT(Box::new(ext), None, true)));
+        })
+    }
+    */
+
+    /*
+    pub struct SyntaxExtensionNamedOutputDefiner {}
+
+    impl NamedOutputDefiner for SyntaxExtensionNamedOutputDefiner {
+        fn define_named_output<'cx>(&self, ecx: &'cx mut ExtCtxt, output_name: &str, f: Fn(&mut OutputActionWrite)) {
+        }
+    }
+    */
+}
 
 /*
 fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
@@ -30,32 +143,10 @@ fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) 
 }
 */
 
-fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
-    let ident = ecx.ident_of(name);
-    (*ecx.resolver).add_ext(ident, ext);
-}
-
-macro_rules! define_named_template {
-    ($ecx: ident, $name: ident, $ty:ident, $lang: expr, $views:expr) => ({
-        let name = $name.name.to_string();
-        let ext_name = &format!("emit_{}_view_{}", $lang, name);
-        let ext = LangSyntaxExt::<$ty>::create_template(&name, $views.clone());
-        define_ext($ecx, ext_name, Rc::new(NormalTT(Box::new(ext), None, true)));
-    })
-}
 
 
 trait WriteBlockFactory {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
-}
-
-mod lang {
-    pub enum Rust {}
-    pub enum Js {}
-
-    pub trait Lang {
-        fn ext() -> &'static str;
-    }
 }
 
 pub mod expander {
@@ -126,7 +217,9 @@ pub mod expander {
 
         let mut parser = ecx.new_parser_from_tts(&tts);
 
-        match parse_template(ecx, &mut parser, span) {
+        let template_name = ident.name.to_string().to_owned();
+
+        match parse_template(ecx, &mut parser, span, &template_name) {
             Ok(template) => {
                 // TODO: Implement
 

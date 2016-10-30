@@ -48,22 +48,22 @@ impl IntoOutputActions for TemplateNode {
 }
 */
 
-mod parse {
+pub mod parse {
     use super::View;
     use syntax::tokenstream::TokenTree;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::parse::{token, PResult};
     use syntax::parse::parser::Parser;
-    use nodes::content_node::parse::parse_contents;
+    use nodes::content_node::parse::{NodeType, parse_contents};
 
     pub fn parse_view<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, View> {
-        let view_token = try!(parser.parse_ident());
+        //let view_token = try!(parser.parse_ident());
         let view_name = try!(parser.parse_ident());
 
         try!(parser.expect(&token::OpenDelim(token::Bracket)));
 
-        let nodes = try!(parse_contents(ecx, parser, span));
+        let nodes = try!(parse_contents(ecx, parser, span, &NodeType::Root));
 
         Ok(View {
             name: view_name.name.to_string(),
@@ -109,7 +109,7 @@ mod codegen {
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::build::AstBuilder;
     use syntax::ptr::P;
-    use codegen::{WriteItems, WriteStringOutputStmts, ItemWrite, StringOutputStmtWrite, IntoBlock};
+    use codegen::{WriteItems, WriteStringOutputStmts, StringOutputStmtWrite, IntoBlock};
 
     fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
         let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
@@ -121,14 +121,14 @@ mod codegen {
     }
 
     impl WriteItems for View {
-        fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite) {
-            let view_item = create_view_item(ecx, &self);
-            w.write_item(view_item);
+        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
+            let item = create_view_item(ecx, &self);
+            ecx.stmt_item(DUMMY_SP, item);
         }
     }
 
     impl WriteStringOutputStmts for View {
-        fn write_string_output_stmts<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite) {
+        fn write_string_output_stmts<'cx, C>(&self, ecx: &'cx ExtCtxt, w: &mut StringOutputStmtWrite<C>) {
             // TODO: Output something
         }
     }

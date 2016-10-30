@@ -22,12 +22,17 @@ pub mod parse {
     use output_actions::{OutputAction, IntoOutputActions};
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr;
-    use nodes::content_node::parse::parse_contents;
+    use nodes::content_node::parse::{NodeType, parse_contents};
 
-    fn parse_element<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, element_type: &str) -> PResult<'a, Element> {
+    pub fn parse_element<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, node_type: &NodeType) -> PResult<'a, Element> {
+        let element_type_token = try!(parser.parse_ident());
+        let element_type = element_type_token.name.to_string().to_owned();
+
+        ecx.span_warn(span, &format!("Parsing contents ({:?}) - got element type: {:?}", node_type, &element_type));
+
         try!(parser.expect(&token::OpenDelim(token::Bracket)));
 
-        let nodes = try!(parse_contents(ecx, &mut parser, span));
+        let nodes = try!(parse_contents(ecx, &mut parser, span, &NodeType::Named(element_type.to_owned())));
 
         Ok(Element {
             element_type: element_type.to_owned(),

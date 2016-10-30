@@ -98,6 +98,7 @@ pub mod parse {
         parser.bump();
 
         loop {
+            /*
             if let &token::CloseDelim(token::Brace) = &parser.token {
                 ecx.span_warn(span, "Got close expression - completed expression");
                 parser.bump();
@@ -113,33 +114,48 @@ pub mod parse {
                 };
                 continue;
             };
+            */
 
-            match &parser.token {
-                &token::Literal(literals::Str_(ref contents), _) => {
+            match parser.token {
+                token::CloseDelim(token::Brace) => {
+                    ecx.span_warn(span, "Got close expression - completed expression");
+                    break;
+                },
+
+                token::Ident(_) => {
+                    match parse_var_reference(ecx, parser, span) {
+                        Ok(SimpleExprToken::VarReference(ref var_name)) => {
+                            w.var_reference(var_name);
+                        },
+                        _ => { ecx.span_warn(span, "Unable to parse VarReference for this ident"); }
+                    };
+                },
+
+                token::Literal(literals::Str_(ref contents), _) => {
                     let string_value = &contents.to_string();
 
-                    ecx.span_warn(span, &format!("Parsing expression - got literal: {:?}", &string_value));
+                    ecx.span_warn(span, &format!("Parsing simple expression - got literal: {:?}", &string_value));
                     w.string_lit(&string_value);
                 },
 
-                &token::BinOp(binops::Plus) => {
+                token::BinOp(binops::Plus) => {
                     w.binop_plus();
                 },
 
-                &token::BinOp(binops::Minus) => {
+                token::BinOp(binops::Minus) => {
                     w.binop_minus();
                 },
 
-                &token::OpenDelim(token::Paren) => {
+                token::OpenDelim(token::Paren) => {
                     w.open_paren();
                 },
 
-                &token::CloseDelim(token::Paren) => {
+                token::CloseDelim(token::Paren) => {
                     w.close_paren();
                 },
 
                 _ => {
-                    ecx.span_err(span, &format!("Parsing expression - unknown token: {:?}", &parser.token));
+                    ecx.span_err(span, &format!("Parsing simple expression - unknown token: {:?}", &parser.token));
                 }
             }
             parser.bump();

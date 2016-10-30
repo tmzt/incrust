@@ -36,6 +36,32 @@ pub mod output {
     // TODO: Output JS
 }
 
+pub mod output_ast {
+    use super::{Template, TemplateNode};
+    use codegen::{WriteItems};
+    use syntax::ext::base::{ExtCtxt, MacResult, MacEager, TTMacroExpander};
+
+    impl WriteItems for Template {
+        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
+            for node in &self.nodes {
+                node.write_items(ecx);
+            }
+        }
+    }
+
+    impl WriteItems for TemplateNode {
+        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
+            match self {
+                &TemplateNode::ViewNode(_, ref view) => {
+                    view.write_items(ecx);;
+                },
+                _ => {
+                }
+            }
+        }
+    }
+}
+
 // NEXTREV: Make this depend on syntax/syntex
 pub mod expand {
     use super::Template;
@@ -73,21 +99,36 @@ pub mod parse {
     use syntax::parse::parser::Parser;
 
     use output_actions::{OutputAction, IntoOutputActions};
+    use nodes::view_node::{View};
+    use nodes::view_node::parse::parse_view;
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr;
 
-    pub fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, Template> {
-        // Consume keyword and name
-        let template_keyword = try!(parser.parse_ident());
-        let name_token = try!(parser.parse_ident());
-
+    pub fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, name: &str) -> PResult<'a, Template> {
         let mut nodes = Vec::new();
-        let name = name_token.name.to_string().to_owned();
 
         loop {
             match parser.token {
+                token::CloseDelim(token::Bracket) => {
+                    ecx.span_warn(span, "Parsing template - got closing bracket");
+                    break;
+                },
+
                 token::Ident(_) => {
-                    let keyword_token = parser.parse_ident();
+                    let keyword_token = try!(parser.parse_ident());
+                    let keyword = keyword_token.name.to_string().to_owned();
+
+                    ecx.span_warn(span, &format!("Parsing template - got keyword: {:?}", &keyword));
+                    match keyword.as_ref() {
+                        "view" => {
+                            ecx.span_warn(span, "Parsing view");
+                            let view = try!(parse_view(ecx, &mut parser, span));
+                        },
+
+                        _ => {
+                            ecx.span_warn(span, &format!("Parsing template - got other keyword: {:?}", keyword));
+                        }
+                    }
 
                     /*
                     let keyword = if let token::Ident(ref ident) = parser.token {
@@ -113,17 +154,13 @@ pub mod parse {
                     */
                 },
 
-                token::CloseDelim(token::Bracket) => {
-                    ecx.span_warn(span, "Parsing view node - got closing bracket");
-                },
-
                 _ => {
-                    ecx.span_err(span, &format!("Parsing view node - got unexpected token: {:?}", parser.token));
+                    ecx.span_err(span, &format!("Parsing template - got unexpected token: {:?}", parser.token));
                 }
             }
         }
 
-        let template = Template { name: name, span: span, nodes: nodes };
+        let template = Template { name: name.to_owned(), span: span, nodes: nodes };
         Ok(template)
     }
 
