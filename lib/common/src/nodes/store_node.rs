@@ -20,10 +20,10 @@ pub enum StoreNode {
 mod parse {
 }
 
-mod output {
+pub mod output {
     use super::Store;
     use syntax::ext::base::ExtCtxt;
-    use output_actions::{OutputAction, IntoOutputActions};
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for Store {
         fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
@@ -38,6 +38,12 @@ mod output {
             */
 
             output_actions
+        }
+    }
+
+    impl WriteOutputActions for Store {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            // TODO: Implement
         }
     }
 }

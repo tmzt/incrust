@@ -76,7 +76,7 @@ pub mod parse {
 mod output {
     use super::View;
     use syntax::ext::base::ExtCtxt;
-    use output_actions::{OutputAction, IntoOutputActions};
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for View {
         fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
@@ -88,6 +88,14 @@ mod output {
                 .collect();
 
             output_actions
+        }
+    }
+
+    impl WriteOutputActions for View {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            for node in &self.nodes {
+                node.write_output_actions(w);
+            }
         }
     }
 }

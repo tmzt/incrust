@@ -20,9 +20,9 @@ pub enum TemplateNode {
 }
 
 pub mod output {
-    use super::TemplateNode;
+    use super::{Template, TemplateNode};
     use syntax::ext::base::ExtCtxt;
-    use output_actions::{OutputAction, IntoOutputActions};
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for TemplateNode {
         fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
@@ -33,7 +33,22 @@ pub mod output {
         }
     }
 
-    // TODO: Output JS
+    impl WriteOutputActions for TemplateNode {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            match self {
+                &TemplateNode::ViewNode(ref view_name, ref view) => view.write_output_actions(w),
+                &TemplateNode::StoreNode(ref store_name, ref store) => store.write_output_actions(w),
+            }
+        }
+    }
+
+    impl WriteOutputActions for Template {
+        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+            for node in &self.nodes {
+                node.write_output_actions(w);
+            }
+        }
+    }
 }
 
 pub mod output_ast {

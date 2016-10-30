@@ -94,7 +94,7 @@ pub mod string_writer {
 
     mod internal {
         use super::super::stmt_writer::{WriteStmts, StmtWrite};
-        use super::super::lang::{Lang};
+        use super::super::lang::{Lang, Html, Js};
         use super::{WriteStrings, StringWrite};
         use syntax::ext::base::ExtCtxt;
         use syntax::ast;
@@ -104,6 +104,33 @@ pub mod string_writer {
             inner: &'s mut StmtWrite
         }
 
+        macro_rules! string_writer_impl (
+            ($lang: ident) => (
+                impl<'s> StringWrite<$lang> for StmtsWrapper<'s> {
+                    fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
+                        let writer = &self.writer;
+
+                        let stmt = quote_stmt!(ecx, {
+                            write!($writer, "{}", $contents).unwrap();
+                        }).unwrap();
+
+                        self.inner.write_stmt(stmt);
+                    }
+                }
+
+                impl<S: WriteStrings<$lang>> WriteStmts for S {
+                    fn write_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StmtWrite) {
+                        let writer = ecx.ident_of("writer");
+                        let mut wrapper = StmtsWrapper { writer: writer, inner: w };
+
+                        self.write_strings(ecx, &mut wrapper);
+                    }
+                }
+            )
+        );
+        string_writer_impl!(Html);
+
+        /*
         impl<'s, L: Lang> StringWrite<L> for StmtsWrapper<'s> {
             fn write_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
                 let writer = &self.writer;
@@ -124,6 +151,7 @@ pub mod string_writer {
                 self.write_strings(ecx, &mut wrapper);
             }
         }
+        */
     }
 }
 
