@@ -3,24 +3,33 @@
 pub mod expander {
     use std::marker::PhantomData;
     use syntax::ast;
-    use syntax::ext::base::{ExtCtxt, NormalTT, TTMacroExpander, MacResult, DummyResult, MacEager};
+    use syntax::ext::base::{ExtCtxt, SyntaxExtension, NormalTT, TTMacroExpander, MacResult, DummyResult, MacEager};
     use syntax::parse::parser::Parser;
     use syntax::tokenstream::TokenTree;
     use syntax::util::small_vector::SmallVector;
     use syntax::codemap::Span;
+    use syntax::ptr::P;
 
     use incrust_common::codegen::WriteItems;
-    use incrust_common::codegen::lang::{Lang, Html, Js, NamedOutputExt};
+    use incrust_common::codegen::lang::{Lang, Html, Js};
+    //use incrust_common::codegen::expander::Expander;
     use incrust_common::codegen::named_output_writer::{WriteNamedOutputs, NamedOutputWrite};
+    use incrust_common::output_actions::OutputAction;
     use incrust_common::nodes::*;
     use incrust_common::nodes::template_node::{Template, TemplateNode};
     use incrust_common::nodes::template_node::parse::parse_template;
 
-    fn define_lang_outputs<'cx, 'r, L: Lang, D>(ecx: &'cx ExtCtxt<'r>, span: Span, source: &WriteNamedOutputs<L, D>) {
-        let mut named_outputs: Vec<NamedOutputExt<L, D>> = vec![];
-    }
+    use std::rc::Rc;
 
-    fn process_contents<'cx, 'r>(ecx: &'cx ExtCtxt<'r>, span: Span, ident: ast::Ident, mut parser: &mut Parser) -> Box<MacResult + 'cx> {
+
+    /*
+    fn define_lang_outputs<'cx: 'r, 'r, L: Lang, D>(ecx: &'cx ExtCtxt<'r>, span: Span, source: &WriteNamedOutputs<L, D>) {
+        let mut named_outputs: Vec<NamedOutputExt<L, D>> = vec![];
+        source.write_named_outputs(ecx, &mut named_outputs);
+    }
+    */
+
+    fn process_contents<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, ident: ast::Ident, mut parser: &mut Parser) -> Box<MacResult + 'cx> {
         let template_name = ident.name.to_string();
         ecx.span_warn(span, &format!("Parsing contents of template {}", &template_name));
 
@@ -44,9 +53,13 @@ pub mod expander {
                 //let mut named_outputs = vec![];
                 //define_lang_outputs!(ecx, &template, &mut named_outputs, Html, String);
                 //define_lang_outputs::<Html, String>(ecx, span, &template, &mut named_outputs);
-                define_lang_outputs::<Html, String>(ecx, span, &template);
+                //define_lang_outputs::<Html, String>(ecx, span, &template);
 
-                // Empty (but must consist of items)
+                let name = format!("template_{}", template_name).to_owned();
+                let data: Vec<OutputAction> = vec![];
+                //define_named_output!(ecx, name, Html, Vec<OutputAction>, data);
+
+                // Empty (but must consist of items)                                                                                                    
                 MacEager::items(SmallVector::zero())
             },
 

@@ -11,6 +11,10 @@ pub struct Template {
     nodes: Vec<TemplateNode>,
 }
 
+impl Template {
+    pub fn name(&self) -> &str { &self.name }
+}
+
 // Represents a parsed node in template contents
 #[derive(Clone, Debug)]
 pub enum TemplateNode {

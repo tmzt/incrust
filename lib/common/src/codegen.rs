@@ -25,7 +25,6 @@ pub trait WriteItems {
 }
 
 pub mod lang {
-    use std::marker::PhantomData;
     pub enum Html {}
     pub enum Js {}
 
@@ -42,20 +41,174 @@ pub mod lang {
     }
     lang!(Html, "html");
     lang!(Js, "js");
+}
+
+pub mod ext {
+    use std::marker::PhantomData;
+    use super::lang::Lang;
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
 
     #[derive(Debug, Clone)]
     pub struct NamedOutputExt<L: Lang, D> {
+        name: String,
         data: D,
         _l: PhantomData<L>
     }
 
     impl <L: Lang, D> NamedOutputExt<L, D> {
+        pub fn name(&self) -> &str {
+            &self.name
+        }
+
         pub fn create_named_output(name: &str, data: D) -> NamedOutputExt<L, D> {
             NamedOutputExt {
+                name: name.to_owned(),
                 data: data,
                 _l: PhantomData::<L>,
             }
         }
+    }
+}
+
+/*
+pub mod expander {
+    use super::lang::{Lang, Html, Js};
+    use super::ext::NamedOutputExt;
+    use syntax::ast;
+    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ptr::P;
+    use output_actions::OutputAction;
+
+    pub trait Expander<L: Lang, D> {
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>>;
+    }
+
+    impl Expander<Js, String> for NamedOutputExt<Js, String> {
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>> {
+            vec![]
+        }
+    }
+
+    impl Expander<Html, Vec<OutputAction>> for NamedOutputExt<Html, Vec<OutputAction>> {
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>> {
+            vec![]
+        }
+    }
+}
+*/
+
+// TODO: Make this dependent on version
+pub mod expander_macros {
+    use super::lang::{Lang, Html, Js};
+    //use super::expander::Expander;
+    use super::ext::NamedOutputExt;
+    use std::rc::Rc;
+    use syntax::ast;
+    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::ext::base::{ExtCtxt, SyntaxExtension, NormalTT, TTMacroExpander, MacResult, DummyResult, MacEager};
+    use syntax::ext::build::AstBuilder;
+    use syntax::ptr::P;
+    use syntax::tokenstream::TokenTree;
+    use syntax::util::small_vector::SmallVector;
+    use nodes::template_node::Template;
+    use output_actions::OutputAction;
+
+    /*
+    pub trait Expander<L: Lang, D> {
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>>;
+    }
+
+    impl Expander<Js, String> for NamedOutputExt<Js, String> {
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>> {
+            vec![]
+        }
+    }
+
+    impl Expander<Html, Vec<OutputAction>> for NamedOutputExt<Html, Vec<OutputAction>> {
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>> {
+            vec![]
+        }
+    }
+    */
+
+    pub trait Expander<L: Lang, D> {
+        type Lang;
+        type Item;
+
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>>;
+    }
+
+    impl Expander<Html, Vec<OutputAction>> for NamedOutputExt<Html, Vec<OutputAction>> {
+        type Lang = Html;
+        type Item = Vec<OutputAction>;
+
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>> {
+            vec![]
+        }
+    }
+
+    impl Expander<Js, String> for NamedOutputExt<Js, String> {
+        type Lang = Js;
+        type Item = String;
+
+        fn expand_template<'cx, 'r>(&self, ecx: &'cx mut ExtCtxt<'r>, span: Span) -> Vec<P<ast::Stmt>> {
+            vec![]
+        }
+    }
+
+    mod utils {
+        use std::rc::Rc;
+        use syntax::ext::base::ExtCtxt;
+        use syntax::ext::build::AstBuilder;
+        use syntax::ext::base::{SyntaxExtension};
+
+        pub fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
+            let ident = ecx.ident_of(name);
+            (*ecx.resolver).add_ext(ident, ext);
+        }
+    }
+
+
+    macro_rules! lang_expander (
+        ($lang: ty, $item: ty) => (
+            impl TTMacroExpander for Expander<$lang, $item, Lang = $lang, Item = $item> {
+                fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+                    let stmts: Vec<ast::Stmt> = vec![];
+                    let block = ecx.block(DUMMY_SP, stmts);
+                    MacEager::expr(ecx.expr_block(block))
+                }
+            }
+        )
+    );
+    lang_expander!(Js, String);
+    lang_expander!(Html, Vec<OutputAction>);
+
+    /*
+    impl TTMacroExpander for Expander<Lang = Html, Item = Vec<OutputAction>> {
+        fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+            let stmts: Vec<ast::Stmt> = vec![];
+            let block = ecx.block(DUMMY_SP, stmts);
+            MacEager::expr(ecx.expr_block(block))
+        }
+    }
+    */
+
+    macro_rules! define_named_output (
+        ($ecx: ident, $name: expr, $lang: ty, $ty: ty, $data: expr) => ({
+            // TODO: Make the name more robust, include a uuid of some type
+            let ext_name = &format!("emit_output_{}_{}", stringify!($lang), stringify!($name));
+            let ext = Box::new(NamedOutputExt::<$lang, $ty>::create_named_output(ext_name, $data));
+            let rc = Rc::new(NormalTT(ext, None, true));
+
+            //utils::define_ext($ecx, ext_name, Rc::new(NormalTT(Box::new(ext), None, true)));
+        })
+    );
+
+    fn define_template_outputs<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, template: &Template) {
+        let mut output_actions: Vec<OutputAction> = vec![];
+        define_named_output!(ecx, template.name(), Html, Vec<OutputAction>, output_actions);
     }
 }
 
@@ -203,7 +356,8 @@ mod utils {
 
 pub mod named_output_writer {
     use super::stmt_writer::WriteStmts;
-    use super::lang::{Lang, NamedOutputExt};
+    use super::lang::Lang;
+    use super::ext::NamedOutputExt;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::build::AstBuilder;
