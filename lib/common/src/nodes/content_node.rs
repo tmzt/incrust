@@ -105,10 +105,13 @@ pub mod output_ast {
     use syntax::ext::base::ExtCtxt;
 
     impl IntoOutputActions for ContentNode {
-        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+        fn into_output_actions(&self) -> Vec<OutputAction> {
             match self {
-                &ContentNode::ElementNode(ref element) => element.into_output_actions(ecx),
-                &ContentNode::ExprNode(ref simple_expr) => simple_expr.into_output_actions(ecx)
+                &ContentNode::ElementNode(ref element) => element.into_output_actions(),
+                &ContentNode::ExprNode(ref simple_expr) => {
+                    // TODO: Return a WriteResult serializing simple_expr
+                    vec![OutputAction::WriteResult(simple_expr.clone())]
+                }
             }
         }
     }
@@ -121,9 +124,10 @@ pub mod output_ast {
                 },
 
                 &ContentNode::ExprNode(ref simple_expr) => {
-                    simple_expr.write_output_actions(w);
+                    // TODO: Write a WriteResult serializing simple_expr
+                    w.write_output_action(&OutputAction::WriteResult(simple_expr.clone()));
                 }
-            }
+            };
         }
     }
 }

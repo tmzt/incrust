@@ -21,7 +21,7 @@ pub trait OutputActionWrite {
 }
 
 pub trait IntoOutputActions {
-    fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction>;
+    fn into_output_actions(&self) -> Vec<OutputAction>;
 }
 
 /// Represents a type of action to perform when rendering
@@ -38,10 +38,20 @@ pub enum OutputAction {
 }
 
 mod output_strings {
-    use super::OutputAction;
+    use super::{OutputAction, WriteOutputActions};
     use syntax::ext::base::ExtCtxt;
     use codegen::lang::{Lang, Js, Html};
     use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
+
+    impl<S: WriteOutputActions> WriteOutputStrings<Html> for S {
+        fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Html>) {
+            let mut output_actions = Vec::new();
+            self.write_output_actions(&mut output_actions);
+            for output_action in &output_actions {
+                output_action.write_output_strings(ecx, w);
+            }
+        }
+    }
 
     impl WriteOutputStrings<Html> for OutputAction {
         fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Html>) {

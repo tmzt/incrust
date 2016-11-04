@@ -26,7 +26,7 @@ pub mod output {
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for Store {
-        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+        fn into_output_actions(&self) -> Vec<OutputAction> {
             let name = &self.name;
             let nodes = &self.nodes;
 

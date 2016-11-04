@@ -29,10 +29,13 @@ pub mod output {
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for TemplateNode {
-        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+        fn into_output_actions(&self) -> Vec<OutputAction> {
             match self {
-                &TemplateNode::ViewNode(ref view_name, ref view) => view.into_output_actions(ecx),
-                &TemplateNode::StoreNode(ref store_name, ref store) => store.into_output_actions(ecx),
+                &TemplateNode::ViewNode(ref view_name, ref view) => view.into_output_actions(),
+                &TemplateNode::StoreNode(ref store_name, ref store) => {
+                    // TODO: Define what we want to do here
+                    vec![]
+                }
             }
         }
     }

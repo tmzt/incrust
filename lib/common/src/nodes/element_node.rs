@@ -48,7 +48,7 @@ pub mod output {
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for Element {
-        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
+        fn into_output_actions(&self) -> Vec<OutputAction> {
             let nodes = &self.nodes;
             let element_type = &self.element_type;
             let mut output_actions = Vec::new();
@@ -56,7 +56,7 @@ pub mod output {
             output_actions.push(OutputAction::WriteOpen(element_type.clone()));
 
             let child_actions: Vec<OutputAction> = nodes.iter()
-                .flat_map(|node| node.into_output_actions(ecx))
+                .flat_map(|node| node.into_output_actions())
                 .collect();
             output_actions.extend(child_actions);
 
@@ -68,8 +68,9 @@ pub mod output {
 
     impl WriteOutputActions for Element {
         fn write_output_actions(&self, w: &mut OutputActionWrite) {
-            for node in &self.nodes {
-                &node.write_output_actions(w);
+            let output_actions = self.into_output_actions();
+            for output_action in &output_actions {
+                w.write_output_action(output_action);
             }
         }
     }

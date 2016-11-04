@@ -173,6 +173,7 @@ pub mod parse {
     }
 }
 
+/*
 pub mod output {
     use super::{SimpleExpr, SimpleExprToken};
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
@@ -190,6 +191,7 @@ pub mod output {
         }
     }
 }
+*/
 
 pub mod output_ast {
     use syntax::ast;
