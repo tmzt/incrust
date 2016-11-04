@@ -57,22 +57,22 @@ pub mod output {
 
 pub mod output_ast {
     use super::{Template, TemplateNode};
-    use codegen::{WriteItems};
+    use codegen::item_writer::{WriteItems, ItemWrite};
     use syntax::ext::base::{ExtCtxt, MacResult, MacEager, TTMacroExpander};
 
     impl WriteItems for Template {
-        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
+        fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite) {
             for node in &self.nodes {
-                node.write_items(ecx);
+                node.write_items(ecx, w);
             }
         }
     }
 
     impl WriteItems for TemplateNode {
-        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
+        fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite) {
             match self {
                 &TemplateNode::ViewNode(_, ref view) => {
-                    view.write_items(ecx);;
+                    view.write_items(ecx, w);
                 },
                 _ => {
                 }

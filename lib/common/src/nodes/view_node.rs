@@ -108,118 +108,65 @@ mod output_ast {
     use syntax::ext::build::AstBuilder;
     use syntax::ptr::P;
     use output_actions::{OutputAction};
-    use codegen::WriteItems;
-
-    /*
-    fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
-        let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
-        let block = view.into_block(ecx);
-
-        let inputs = vec![];
-        let ret_ty = quote_ty!(ecx, String);
-        ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
-    }
-    */
-
-    /*
-    fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
-    }
-    */
-
-    impl WriteItems for View {
-        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
-            //let item = create_view_item(ecx, &self);
-            //ecx.stmt_item(DUMMY_SP, item);
-        }
-    }
-
-    /*
-    impl IntoBlock for View {
-        fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-            let mut stmts: Vec<ast::Stmt> = vec![];
-            view.write_strings()
-            view.write_string_output_stmts()
-        }
-    }
-    */
-
-    /*
-    impl WriteItems for View {
-        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt) {
-            let mut output_actions: Vec<OutputAction> = vec![];
-            for node in &self.nodes {
-                node.write_output_actions(output_actions);
-                node.write_items(ecx);
-            }
-        }
-    }
-    */
-}
-
-mod codegen {
-
-    /*
-    fn create_view_item_stmts<'cx>(ecx: &'cx ExtCtxt, views: &[View]) -> Vec<ast::Stmt> {
-        let view_item_stmts: Vec<ast::Stmt> = views.iter()
-            .map(|view| view.into_view_item(ecx))
-            .map(|item| ecx.stmt_item(DUMMY_SP, item))
-            .collect();
-
-        view_item_stmts
-    }
-    */
-}
-
-/*
-mod output_items {
-    use super::View;
-    use syntax::ast;
-    use syntax::codemap::{Span, DUMMY_SP};
-    use syntax::ext::base::ExtCtxt;
-    use syntax::ext::quote::rt::ToTokens;
-    use syntax::ptr::P;
-    use syntax::ext::build::AstBuilder;
-
-    use codegen::{IntoWriteStmt, IntoViewItem, IntoBlock};
-    use output_actions::{OutputAction, IntoOutputActions};
-
-    fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
-        let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name));
-        let block = view.into_block(ecx);
-
-        let inputs = vec![];
-        let ret_ty = quote_ty!(ecx, String);
-        ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
-    }
-
-    impl IntoViewItem for View {
-        fn into_view_item<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Item> {
-            create_view_item(ecx, &self)
-        }
-    }
+    use codegen::IntoBlock;
+    use codegen::lang::{Lang, Html, Js};
+    use codegen::item_writer::{WriteItems, ItemWrite};
+    use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
+    use codegen::output_stmt_writer::{WriteOutputStmts, OutputStmtWrite};
 
     impl IntoBlock for View {
         fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-            let name = &self.name;
-            let nodes = &self.nodes;
-
+            let mut stmts = vec![];
             let w_ident = ecx.ident_of("out");
-            let mut stmts = Vec::new();
-
-            let out_stmt = quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap();
-            stmts.push(out_stmt);
-
-            let write_stmts: Vec<ast::Stmt> = nodes.iter()
-                .flat_map(|node| node.into_output_actions(ecx))
-                .map(|output_action| output_action.into_write_stmt(ecx, w_ident))
-                .collect();
-            stmts.extend(write_stmts);
-
-            // Return rendered string for now
-            stmts.push(quote_stmt!(ecx, $w_ident).unwrap());
-
-            ecx.block(self.span, stmts)
+            //&self.write_output_stmts(ecx, &mut stmts);
+            stmts.push(quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap());
+            ecx.block(DUMMY_SP, stmts)            
         }
     }
+
+    fn create_view_item<'cx>(ecx: &'cx ExtCtxt, span: Span, view: &View) -> P<ast::Item> {
+        let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name()));
+        let block = view.into_block(ecx);
+
+        let inputs = vec![];
+        let ret_ty = quote_ty!(ecx, String);
+        ecx.item_fn(span, name, inputs, ret_ty, block)
+    }
+
+    impl WriteItems for View {
+        fn write_items<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut ItemWrite) {
+            let name = ecx.ident_of(&format!("rusttemplate_view_{}", &self.name()));
+            let block = self.into_block(ecx);
+
+            let inputs = vec![];
+            let ret_ty = quote_ty!(ecx, String);
+            let item = ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block);
+            w.write_item(ecx, item);
+        }
+    }
+
+    /*
+    pub fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {
+        let mut stmts: Vec<ast::Stmt> = vec![];
+        &view.write_stmts(ecx, &mut stmts);
+
+        let w_ident = ecx.ident_of("out");
+        stmts.push(quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap());
+        let block = ecx.block(DUMMY_SP, stmts);
+
+        let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name()));
+        let inputs = vec![];
+        let ret_ty = quote_ty!(ecx, String);
+        ecx.item_fn(DUMMY_SP, name, inputs, ret_ty, block)
+    }
+    */
+
+    /*
+    impl WriteItems for View {
+        fn write_items<'cx>(&self, ecx: &'cx mut ExtCtxt, w: &mut ItemWrite) {
+            let item = create_view_item(ecx, &self);
+            ecx.stmt_item(DUMMY_SP, item);
+        }
+    }
+    */
 }
-*/

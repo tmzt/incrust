@@ -11,11 +11,16 @@ use syntax::tokenstream::TokenTree;
 use syntax::util::small_vector::SmallVector;
 use syntax::parse::PResult;
 use syntax::parse::parser::Parser;
+use syntax::ptr::P;
 
 use itertools::Itertools;
 
 use nodes::view_node::View;
+use nodes::template_node::Template;
+
 use codegen;
+use codegen::item_writer::WriteItems;
+
 //use incrust_common::codegen;
 //use incrust_common::jsgen::IntoJsFunction;
 //use incrust_common::output_actions::IntoOutputActions;
@@ -49,14 +54,14 @@ macro_rules! define_named_template {
 #[derive(Debug, Clone)]
 struct NamedTemplateDecl {
     name: String,
-    views: Vec<View>
+    template: Template
 }
 
 enum Rust {}
 enum Js {}
 
 trait WriteBlockFactory {
-    fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
+    fn create_write_block<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
 }
 
 trait Lang {
@@ -64,9 +69,9 @@ trait Lang {
 }
 
 impl <L: Lang> LangSyntaxExt<L> {
-    fn create_template(name: &str, views: Vec<View>) -> LangSyntaxExt<L> {
+    fn for_template(name: &str, template: Template) -> LangSyntaxExt<L> {
         let lang_ext = LangSyntaxExt {
-            decl: NamedTemplateDecl { name: String::from(name), views: views },
+            decl: NamedTemplateDecl { name: String::from(name), template: template },
             _l: PhantomData
         };
 
@@ -85,16 +90,23 @@ macro_rules! lang_expander {
     ($lang: ty) => (
         impl TTMacroExpander for LangSyntaxExt<$lang> {
             fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+                /*
                // self.decl.expand(ecx, span, tts)
                 let mut parser = ecx.new_parser_from_tts(tts);
                 let w_ident = parser.parse_ident().unwrap();
-                self.create_write_block(ecx, w_ident)
+                //self.create_write_block(ecx, w_ident)
+                MacEager::items(SmallVector::zero())
+                */
+                let mut items: Vec<P<ast::Item>> = vec![];
+                let template = &self.decl.template;
+                template.write_items(ecx, &mut items);
+                MacEager::items(SmallVector::many(items))
             }
         }
     )
 }
 lang_expander!(Rust);
-lang_expander!(Js);
+//lang_expander!(Js);
 
 macro_rules! lang {
     ($lang: ty, $ext: expr) => (
@@ -106,12 +118,16 @@ macro_rules! lang {
 lang!(Rust, "rust");
 lang!(Js, "js");
 
+/*
 impl WriteBlockFactory for LangSyntaxExt<Rust> {
-    fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
-        codegen::create_template_write_block(ecx, w_ident, &self.decl.views)
+    fn create_write_block<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
+        //codegen::create_template_write_block(ecx, w_ident, &self.decl.views)
+        codegen::create_template_result(ecx, w_ident, &self.decl.template)
     }
 }
+*/
 
+/*
 impl WriteBlockFactory for LangSyntaxExt<Js> {
     fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
         /*
@@ -122,17 +138,34 @@ impl WriteBlockFactory for LangSyntaxExt<Js> {
         */
         let funcs: Vec<String> = vec![];
 
-        codegen::create_write_statements_block(ecx, w_ident, funcs.as_slice())
+        codegen::create_write_statements_block(ecx, w_ident, funcs.as_slice())MacResult
     }
 }
+*/
 
+/*
 impl TTMacroExpander for NamedTemplateDecl {
     fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
         let mut parser = ecx.new_parser_from_tts(tts);
         let w_ident = parser.parse_ident().unwrap();
-        codegen::create_template_write_block(ecx, w_ident, &self.views)
+        //codegen::create_template_write_block(ecx, w_ident, &self.compiled_views);
+        MacEager::items(SmallVector::zero())
     }
 }
+*/
+
+/*
+impl TTMacroExpander for NamedTemplateDecl {
+    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt<'cx>, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+        let mut parser = ecx.new_parser_from_tts(tts);
+        let w_ident = parser.parse_ident().unwrap();
+        //codegen::create_template_write_block(ecx, w_ident, &self.views)
+        //codegen::create_template_result(ecx, w_ident, self.template)
+        //codegen::create_template_result(ecx, w_ident, self.template);
+        MacEager::items(SmallVector::zero())
+    }
+}
+*/
 
 /*
 fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)

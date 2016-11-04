@@ -230,6 +230,47 @@ pub mod output_ast {
     }
 }
 
+mod output_strings {
+    use super::{SimpleExpr, SimpleExprToken};
+    use syntax::ext::base::ExtCtxt;
+    use codegen::lang::{Lang, Js, Html};
+    use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
+    use output_actions::OutputAction;
+
+    impl WriteOutputStrings<Html> for SimpleExpr {
+        fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Html>) {
+            let mut s = String::new();
+            for token in &self.tokens {
+                match token {
+                    &SimpleExprToken::VarReference(ref var_name) => {
+                        w.write_output_string(ecx, &format!("{}", var_name));
+                    },
+
+                    &SimpleExprToken::LitString(ref contents) => {
+                        w.write_output_string(ecx, &format!("\"{}\"", contents));
+                    },
+
+                    &SimpleExprToken::OpenParen => {
+                        w.write_output_string(ecx, &format!("("));
+                    },
+
+                    &SimpleExprToken::CloseParen => {
+                        w.write_output_string(ecx, &format!(")"));
+                    },
+
+                    &SimpleExprToken::BinopPlus => {
+                        w.write_output_string(ecx, &format!("+"));
+                    },
+
+                    &SimpleExprToken::BinopMinus => {
+                        w.write_output_string(ecx, &format!("-"));
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub mod js_write {
     use super::{SimpleExpr, SimpleExprToken};
     use js_write::{WriteJs, WriteJsSimpleExpr, JsWriteSimpleExpr};

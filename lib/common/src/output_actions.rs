@@ -40,40 +40,41 @@ pub enum OutputAction {
 mod output_strings {
     use super::OutputAction;
     use syntax::ext::base::ExtCtxt;
-    use codegen::string_writer::{WriteStrings, StringWrite};
     use codegen::lang::{Lang, Js, Html};
+    use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
 
-    impl WriteStrings<Html> for OutputAction {
-        fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite<Html>) {
+    impl WriteOutputStrings<Html> for OutputAction {
+        fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Html>) {
             match self {
                 &OutputAction::Write(ref contents) => {
-                    w.write_string(ecx, &contents);
+                    w.write_output_string(ecx, &contents);
                 },
 
                 &OutputAction::WriteResult(ref simple_expr) => {
-                    &simple_expr.write_strings(ecx, w);
+                    &simple_expr.write_output_strings(ecx, w);
                 },
 
                 &OutputAction::WriteOpen(ref element_type) => {
-                    w.write_string(ecx, &format!("<{}>", &element_type));
+                    w.write_output_string(ecx, &format!("<{}>", &element_type));
                 },
 
                 &OutputAction::WriteClose(ref element_type) => {
-                    w.write_string(ecx, &format!("</{}>", &element_type));
+                    w.write_output_string(ecx, &format!("</{}>", &element_type));
                 },
 
                 &OutputAction::WriteVoid(ref element_type) => {
-                    w.write_string(ecx, &format!("<{} />", &element_type));
+                    w.write_output_string(ecx, &format!("<{} />", &element_type));
                 }
             }
         }
     }
 
+    /*
     mod internal {
         use super::super::{OutputAction, WriteOutputActions, OutputActionWrite};
         use syntax::ext::base::ExtCtxt;
         use codegen::lang::{Lang, Html, Js};
-        use codegen::string_writer::{WriteStrings, StringWrite};
+        use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
 
         struct Wrapper<'s, 'cx, L: Lang + 's> {
             ecx: &'cx ExtCtxt<'cx>,
@@ -84,14 +85,14 @@ mod output_strings {
             ($lang: ty) => {
                 impl<'s, 'cx> OutputActionWrite for Wrapper<'s, 'cx, $lang> {
                     fn write_output_action(&mut self, output_action: &OutputAction) {
-                        output_action.write_strings(self.ecx, self.w);
+                        //&output_action.write_strings(&self.ecx, &mut self.w);
                     }
                 }
 
-                impl<S: WriteOutputActions> WriteStrings<$lang> for S {
-                    fn write_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut StringWrite<$lang>) {
-                        let mut wrapper = Wrapper { ecx: ecx, w: w };
-                        self.write_output_actions(&mut wrapper);
+                impl<S: WriteOutputActions> WriteOutputStrings<$lang> for S {
+                    fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<$lang>) {
+                        //let mut wrapper = Wrapper { ecx: ecx, w: w };
+                        //&self.write_output_actions(&mut wrapper);
                     }
                 }
             }
@@ -99,13 +100,14 @@ mod output_strings {
         lang!(Html);
         //lang!(Js);
     }
+    */
 }
 
 mod output_ext {
     use super::{OutputAction, WriteOutputActions};
     use syntax::ext::base::ExtCtxt;
-    use codegen::string_writer::{WriteStrings, StringWrite};
     use codegen::lang::{Lang};
+    use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
     use codegen::named_output_writer::{WriteNamedOutputs, NamedOutputWrite};
 
     /*

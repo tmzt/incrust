@@ -10,9 +10,8 @@ pub mod expander {
     use syntax::codemap::Span;
     use syntax::ptr::P;
 
-    use incrust_common::codegen::WriteItems;
     use incrust_common::codegen::lang::{Lang, Html, Js};
-    //use incrust_common::codegen::expander::Expander;
+    use incrust_common::codegen::item_writer::WriteItems;
     use incrust_common::codegen::named_output_writer::{WriteNamedOutputs, NamedOutputWrite};
     use incrust_common::output_actions::OutputAction;
     use incrust_common::nodes::*;
