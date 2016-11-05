@@ -69,10 +69,38 @@ pub mod ext {
     }
 }
 
+pub mod output_string_writer {
+    use std::iter::Iterator;
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
+    use super::lang::{Lang, Html, Js};
+
+    pub trait WriteOutputStrings<L: Lang> {
+        fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<L>);
+    }
+
+    pub trait OutputStringWrite<L: Lang> {
+        fn write_output_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str);
+    }
+
+    impl<L: Lang> OutputStringWrite<L> for Vec<String> {
+        fn write_output_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
+            self.push(contents.to_owned());
+        }
+    }
+
+    impl<L: Lang> OutputStringWrite<L> for String {
+        fn write_output_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
+            self.push_str(&contents);
+        }
+    }
+}
+
 pub mod output_stmt_writer {
     use syntax::ext::base::ExtCtxt;
     use syntax::ast;
     use super::lang::{Lang, Html, Js};
+    use super::output_string_writer::WriteOutputStrings;
 
     pub trait WriteOutputStmts<L: Lang> {
         fn write_output_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStmtWrite<L>, writer: ast::Ident);
@@ -82,6 +110,31 @@ pub mod output_stmt_writer {
         fn write_output_stmt(&mut self, stmt: ast::Stmt);
     }
 
+    impl<L: Lang, S: WriteOutputStrings<L>> WriteOutputStmts<L> for S {
+        fn write_output_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStmtWrite<L>, writer: ast::Ident) {
+            let mut output_strings: Vec<String> = vec![];
+            &self.write_output_strings(ecx, &mut output_strings);
+
+            let stmts = output_strings.iter()
+                .map(|s| {
+                    quote_stmt!(ecx, {
+                        write!($writer, "{}", &s).unwrap();
+                    }).unwrap()
+                });
+
+            for stmt in stmts {
+                w.write_output_stmt(stmt);
+            }
+        }
+    }
+
+    impl<'s, L: Lang> OutputStmtWrite<L> for Vec<ast::Stmt> {
+        fn write_output_stmt(&mut self, stmt: ast::Stmt) {
+            self.push(stmt);
+        }
+    }
+
+    /*
     macro_rules! stmt_writer_impl (
         ($lang: ident) => (
             impl<'s> OutputStmtWrite<$lang> for Vec<ast::Stmt> {
@@ -92,53 +145,7 @@ pub mod output_stmt_writer {
         )
     );
     stmt_writer_impl!(Html);
-}
-
-pub mod output_string_writer {
-    use std::iter::Iterator;
-    use syntax::ext::base::ExtCtxt;
-    use syntax::ast;
-    use super::output_stmt_writer::{WriteOutputStmts, OutputStmtWrite};
-    use super::lang::{Lang, Html, Js};
-
-    use output_actions::{WriteOutputActions, OutputAction};
-
-    pub trait WriteOutputStrings<L: Lang> {
-        fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<L>);
-    }
-
-    pub trait OutputStringWrite<L: Lang> {
-        fn write_output_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str);
-    }
-
-    macro_rules! string_writer_impl (
-        ($lang: ident) => (
-            impl<S: WriteOutputStrings<$lang>> WriteOutputStmts<$lang> for S {
-                fn write_output_stmts<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStmtWrite<$lang>, writer: ast::Ident) {
-                    let mut output_strings: Vec<String> = vec![];
-                    &self.write_output_strings(ecx, &mut output_strings);
-
-                    let stmts = output_strings.iter()
-                        .map(|s| {
-                            quote_stmt!(ecx, {
-                                write!($writer, "{}", &s).unwrap();
-                            }).unwrap()
-                        });
-
-                    for stmt in stmts {
-                        w.write_output_stmt(stmt);
-                    }
-                }
-            }
-
-            impl OutputStringWrite<$lang> for Vec<String> {
-                fn write_output_string<'cx>(&mut self, ecx: &'cx ExtCtxt, contents: &str) {
-                    self.push(contents.to_owned());
-                }
-            }
-        )
-    );
-    string_writer_impl!(Html);
+    */
 }
 
 pub mod block_writer {

@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 
 use syntax::ast;
-use syntax::codemap::Span;
+use syntax::codemap::{Span, DUMMY_SP};
 use syntax::ext::base::{DummyResult, ExtCtxt, MacEager, MacResult, SyntaxExtension, NormalTT, TTMacroExpander};
 use syntax::ext::hygiene::Mark;
 use syntax::tokenstream::TokenTree;
@@ -15,27 +15,15 @@ use syntax::ptr::P;
 
 use itertools::Itertools;
 
+use nodes;
 use nodes::view_node::View;
 use nodes::template_node::Template;
 
 use codegen;
+use codegen::lang::{Lang, Html, Js};
 use codegen::item_writer::WriteItems;
+use codegen::output_string_writer::WriteOutputStrings;
 
-//use incrust_common::codegen;
-//use incrust_common::jsgen::IntoJsFunction;
-//use incrust_common::output_actions::IntoOutputActions;
-//use incrust_common::view::parse_view;
-//use incrust_common::compiled_view::CompiledView;
-
-
-/*
-fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
-    let ident = ecx.ident_of(name);
-    // TODO: This is changed to add_ext in b4906a (https://github.com/rust-lang/rust/commit/b4906a93)
-    // update when updating nightly
-    (*ecx.resolver).add_macro(Mark::root(), ident, ext);
-}
-*/
 
 fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) {
     let ident = ecx.ident_of(name);
@@ -43,80 +31,74 @@ fn define_ext<'cx>(ecx: &'cx mut ExtCtxt, name: &str, ext: Rc<SyntaxExtension>) 
 }
 
 macro_rules! define_named_template {
-    ($ecx: ident, $name: ident, $ty:ident, $lang: expr, $views:expr) => ({
+    ($ecx: ident, $name: ident, $ty:ident, $lang: expr, $item: ty, $template:expr) => ({
         let name = $name.name.to_string();
         let ext_name = &format!("emit_{}_view_{}", $lang, name);
-        let ext = LangSyntaxExt::<$ty>::create_template(&name, $views.clone());
+        let ext = LangSyntaxExt::<$ty, $item>::with_data($ecx, &name, $template);
         define_ext($ecx, ext_name, Rc::new(NormalTT(Box::new(ext), None, true)));
     })
 }
-
-#[derive(Debug, Clone)]
-struct NamedTemplateDecl {
-    name: String,
-    template: Template
-}
-
-enum Rust {}
-enum Js {}
 
 trait WriteBlockFactory {
     fn create_write_block<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
 }
 
-trait Lang {
-    fn ext() -> &'static str;
+pub trait ToData<D, L: Lang> {
+    fn to_data<'cx>(&self, &'cx ExtCtxt) -> D;
 }
 
-impl <L: Lang> LangSyntaxExt<L> {
-    fn for_template(name: &str, template: Template) -> LangSyntaxExt<L> {
-        let lang_ext = LangSyntaxExt {
-            decl: NamedTemplateDecl { name: String::from(name), template: template },
-            _l: PhantomData
-        };
-
-        lang_ext
+impl<L: Lang, S: WriteOutputStrings<L>> ToData<String, L> for S {
+    fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> String {
+        let mut out = String::new();
+        self.write_output_strings(ecx, &mut out);
+        out
     }
 }
 
-#[derive(Debug, Clone)]
-struct LangSyntaxExt<L: Lang> {
-    decl: NamedTemplateDecl,
+impl <L: Lang, D> LangSyntaxExt<L, D> {
+    fn with_data<'cx, S: ToData<D, L>>(ecx: &'cx ExtCtxt, name: &str, src: &S) -> LangSyntaxExt<L, D> {
+        let data: D = src.to_data(ecx);
+
+        LangSyntaxExt {
+            name: name.to_owned(),
+            data: data,
+            _l: PhantomData
+        }
+    }
+}
+
+struct LangSyntaxExt<L: Lang, D> {
+    name: String,
+    data: D,
     _l: PhantomData<L>
 }
 
 /// Define TTMacroExpander for the given language, used the WriteBlockFactory trait above.
 macro_rules! lang_expander {
-    ($lang: ty) => (
-        impl TTMacroExpander for LangSyntaxExt<$lang> {
+    ($lang: ty, $item: ty) => (
+        impl TTMacroExpander for LangSyntaxExt<$lang, $item> {
             fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
-                /*
-               // self.decl.expand(ecx, span, tts)
-                let mut parser = ecx.new_parser_from_tts(tts);
-                let w_ident = parser.parse_ident().unwrap();
-                //self.create_write_block(ecx, w_ident)
-                MacEager::items(SmallVector::zero())
-                */
                 let mut items: Vec<P<ast::Item>> = vec![];
-                let template = &self.decl.template;
-                template.write_items(ecx, &mut items);
+                //let template = &self.decl.template;
+                //template.write_items(ecx, &mut items);
                 MacEager::items(SmallVector::many(items))
             }
         }
     )
 }
-lang_expander!(Rust);
-//lang_expander!(Js);
-
-macro_rules! lang {
-    ($lang: ty, $ext: expr) => (
-        impl Lang for $lang {
-            fn ext() -> &'static str { $ext }
+macro_rules! lang_expander_empty {
+    ($lang: ty, $item: ty) => (
+        impl TTMacroExpander for LangSyntaxExt<$lang, $item> {
+            fn expand<'cx>(&self, _: &'cx mut ExtCtxt, _: Span, _: &[TokenTree]) -> Box<MacResult + 'cx> {
+                MacEager::items(SmallVector::zero())
+            }
         }
     )
 }
-lang!(Rust, "rust");
-lang!(Js, "js");
+
+lang_expander!(Html, String);
+lang_expander_empty!(Js, String);
+//lang_expander!(Js);
 
 /*
 impl WriteBlockFactory for LangSyntaxExt<Rust> {
@@ -143,61 +125,20 @@ impl WriteBlockFactory for LangSyntaxExt<Js> {
 }
 */
 
-/*
-impl TTMacroExpander for NamedTemplateDecl {
-    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
-        let mut parser = ecx.new_parser_from_tts(tts);
-        let w_ident = parser.parse_ident().unwrap();
-        //codegen::create_template_write_block(ecx, w_ident, &self.compiled_views);
-        MacEager::items(SmallVector::zero())
-    }
-}
-*/
-
-/*
-impl TTMacroExpander for NamedTemplateDecl {
-    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt<'cx>, _: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
-        let mut parser = ecx.new_parser_from_tts(tts);
-        let w_ident = parser.parse_ident().unwrap();
-        //codegen::create_template_write_block(ecx, w_ident, &self.views)
-        //codegen::create_template_result(ecx, w_ident, self.template)
-        //codegen::create_template_result(ecx, w_ident, self.template);
-        MacEager::items(SmallVector::zero())
-    }
-}
-*/
-
-/*
-fn parse_template_into_compiled_view<'cx, 'a>(ecx: &'cx mut ExtCtxt, span: Span, parser: &mut Parser<'a>)
-                                                                            -> PResult<'a, View> {
-    let view = try!(parse_view(ecx, parser, span));
-    let output_actions = view.into_output_actions(ecx);
-    ecx.span_warn(span, &format!("output_actions: {:?}", output_actions));
-
-    let name = String::from(view.name());
-    Ok(View::from_output_actions(name, output_actions))
-}
-
 /// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
 /// which will render the parsed template in the given language.
 pub fn expand_define_template<'cx>(ecx: &'cx mut ExtCtxt, span: Span, ident: ast::Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'cx> {
     let mut parser = ecx.new_parser_from_tts(&tts);
 
-    match parse_template_into_compiled_view(ecx, span, &mut parser) {
-        Ok(compiled_view) => {
-            let compiled_views = vec![compiled_view];
-            define_named_template!(ecx, ident, Rust, "rust", compiled_views);
-            define_named_template!(ecx, ident, Js, "js", compiled_views);
-
-            // Empty (but must consist of items)
-            MacEager::items(SmallVector::zero())
+    let name = ident.to_string().to_owned();
+    match nodes::template_node::parse::parse_template(ecx, &mut parser, DUMMY_SP, &name) {
+        Ok(template) => {
+            define_named_template!(ecx, ident, Html, "html", String, &template);
+            define_named_template!(ecx, ident, Js, "js", String, &template);
         },
-
-        Err(mut err) => {
-            err.emit();
-            DummyResult::expr(span)
+        Err(err) => {
+            ecx.span_fatal(span, &format!("Parsing failed for template {:?}: {:?}", &ident, &err));
         }
-    }
-
+    };
+    MacEager::items(SmallVector::zero())
 }
-*/

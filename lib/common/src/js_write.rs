@@ -86,6 +86,23 @@ impl<T: Write> JsWriteParamList for T {
     }
 }
 
+mod output_strings {
+    use super::WriteJs;
+    use std::iter::Iterator;
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ast;
+    use codegen::lang::{Lang, Html, Js};
+    use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
+
+    impl<S: WriteJs> WriteOutputStrings<Js> for S {
+        fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Js>) {
+            let mut out = String::new();
+            self.write_js(&mut out);
+            w.write_output_string(ecx, &mut out);
+        }
+    }
+}
+
 #[test]
 fn test_jsWrite_from_Write() {
 

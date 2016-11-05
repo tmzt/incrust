@@ -113,23 +113,6 @@ mod output_strings {
     */
 }
 
-mod output_ext {
-    use super::{OutputAction, WriteOutputActions};
-    use syntax::ext::base::ExtCtxt;
-    use codegen::lang::{Lang};
-    use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
-    use codegen::named_output_writer::{WriteNamedOutputs, NamedOutputWrite};
-
-    /*
-    impl<S: WriteOutputActions, L: Lang, D> WriteNamedOutputs<L, D> for S {
-        fn write_named_outputs<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut NamedOutputWrite<D>) {
-            let mut output_actions = vec![];
-            &self.write_output_actions(&mut output_actions);
-        }
-    }
-    */
-}
-
 impl OutputActionWrite for Vec<OutputAction> {
     fn write_output_action(&mut self, output_action: &OutputAction) {
         self.push(output_action.clone());
@@ -305,3 +288,20 @@ impl WriteJs for OutputAction {
     }
 }
 
+impl WriteJs for Vec<OutputAction> {
+    fn write_js(&self, js: &mut JsWrite) {
+        for output_action in self {
+            output_action.write_js(js);
+        }
+    }
+}
+
+impl<S: WriteOutputActions> WriteJs for S {
+    fn write_js(&self, js: &mut JsWrite) {
+        let mut output_actions = Vec::new();
+        self.write_output_actions(&mut output_actions);
+        for output_action in &output_actions {
+            output_action.write_js(js);
+        }
+    }
+}

@@ -14,6 +14,8 @@ pub fn render_template_main(html: &mut String, js: &mut String, head_tags: &mut 
             action INCREMENT => (counter + 1);
             action DECREMENT => (counter - 1)
         }
+
+        render $html <= view root
     };
 
     /*

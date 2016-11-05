@@ -118,7 +118,7 @@ mod output_ast {
         fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
             let mut stmts = vec![];
             let w_ident = ecx.ident_of("out");
-            &self.write_output_stmts(ecx, &mut stmts, w_ident);
+            //&self.write_output_stmts(ecx, &mut stmts, w_ident);
             stmts.push(quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap());
             ecx.block(DUMMY_SP, stmts)            
         }

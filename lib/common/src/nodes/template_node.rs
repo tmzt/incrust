@@ -26,7 +26,10 @@ pub enum TemplateNode {
 pub mod output {
     use super::{Template, TemplateNode};
     use syntax::ext::base::ExtCtxt;
+    use output::ToData;
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
+    use codegen::lang::{Lang, Html, Js};
+    use codegen::output_string_writer::WriteOutputStrings;
 
     impl IntoOutputActions for TemplateNode {
         fn into_output_actions(&self) -> Vec<OutputAction> {
@@ -56,6 +59,16 @@ pub mod output {
             }
         }
     }
+
+    /*
+    impl ToData<String, Html> for Template {
+        fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> String {
+            let mut html = String::new();
+            &self.write_output_strings(ecx, &mut html);
+            html
+        }
+    }
+    */
 }
 
 pub mod output_ast {
