@@ -148,77 +148,82 @@ pub mod output_stmt_writer {
     */
 }
 
-pub mod block_writer {
+pub mod output_block_writer {
+    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ext::build::AstBuilder;
     use syntax::ast;
     use syntax::ptr::P;
-    use syntax::ext::base::ExtCtxt;
+    use super::lang::{Lang, Html, Js};
+    use super::output_stmt_writer::WriteOutputStmts;
 
-    /// Request the implementer to write itself out as blocks
-    pub trait WriteBlocks {
-        fn write_blocks<'s, 'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w: &'s mut BlockWrite);
+    pub trait IntoOutputBlock<L: Lang> {
+        fn into_output_block<'cx>(&self, ecx: &'cx ExtCtxt, writer: ast::Ident) -> P<ast::Block>;
     }
 
-    pub trait BlockWrite {
-        fn write_block<'cx>(&mut self, ecx: &'cx ExtCtxt, block: P<ast::Block>);
-    }
-
-    impl<'s> BlockWrite for Vec<P<ast::Block>> {
-        fn write_block<'cx>(&mut self, ecx: &'cx ExtCtxt, block: P<ast::Block>) {
-            self.push(block);
+    impl<L: Lang, S: WriteOutputStmts<L>> IntoOutputBlock<L> for S {
+        fn into_output_block<'cx>(&self, ecx: &'cx ExtCtxt, writer: ast::Ident) -> P<ast::Block> {
+            let mut out = Vec::new();
+            self.write_output_stmts(ecx, &mut out, writer);
+            out.push(quote_stmt!(ecx, let mut $writer = String::new()).unwrap());
+            ecx.block(DUMMY_SP, out)
         }
     }
-
-    /*
-    impl IntoBlock for View {
-        fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
-            let mut stmts = vec![];
-            let w_ident = ecx.ident_of("out");
-            &self.write_stmts(ecx, &mut stmts);
-            stmts.push(quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap());
-            ecx.block(DUMMY_SP, stmts)            
-        }
-    }
-    */
 }
 
-pub mod item_writer {
-    use super::block_writer::WriteBlocks;
+pub mod output_item_writer {
+    use super::output_block_writer::IntoOutputBlock;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::ast;
     use syntax::ptr::P;
     use syntax::ext::build::AstBuilder;
     use codegen::IntoBlock;
+    use codegen::lang::{Lang, Html, Js};
     use nodes::view_node::View;
     use nodes::template_node::Template;
 
     // Request the implement to write itself out as items
-    pub trait WriteItems {
-        fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite);
+    pub trait WriteOutputItems<L: Lang> {
+        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>);
     }
 
-    pub trait ItemWrite {
-        fn write_item<'cx>(&mut self, ecx: &'cx ExtCtxt, item: P<ast::Item>);
+    pub trait OutputItemWrite<L: Lang> {
+        fn write_output_item<'cx>(&mut self, ecx: &'cx ExtCtxt, item: P<ast::Item>);
     }
 
-    impl<'s> ItemWrite for Vec<P<ast::Item>> {
-        fn write_item<'cx>(&mut self, ecx: &'cx ExtCtxt, item: P<ast::Item>) {
+    pub trait IntoOutputItem<L: Lang> {
+        fn into_output_item<'cx>(&self, ecx: &'cx ExtCtxt, name: &str) -> P<ast::Item>;
+    }
+
+    macro_rules! lang_impl (
+        ($lang: ty) => (
+            impl<S: IntoOutputBlock<$lang>> IntoOutputItem<$lang> for S {
+                fn into_output_item<'cx>(&self, ecx: &'cx ExtCtxt, name: &str) -> P<ast::Item> {
+                    let item_name = ecx.ident_of(&format!("rusttemplate_{}_output_{}", stringify!($lang), name));
+                    let block = self.into_output_block(ecx, ecx.ident_of("out"));
+
+                    let inputs = vec![];
+                    let ret_ty = quote_ty!(ecx, String);
+                    ecx.item_fn(DUMMY_SP, item_name, inputs, ret_ty, block)
+                }
+            }
+        )
+    );
+    lang_impl!(Html);
+    lang_impl!(Js);
+
+    impl<'s, L: Lang> OutputItemWrite<L> for Vec<P<ast::Item>> {
+        fn write_output_item<'cx>(&mut self, ecx: &'cx ExtCtxt, item: P<ast::Item>) {
             self.push(item);
         }
     }
 
-    fn create_view_item<'cx>(ecx: &'cx ExtCtxt<'cx>, span: Span, view: &View) -> P<ast::Item> {
-        let name = ecx.ident_of(&format!("rusttemplate_view_{}", view.name()));
-        let block = view.into_block(ecx);
-
-        let inputs = vec![];
-        let ret_ty = quote_ty!(ecx, String);
-        ecx.item_fn(span, name, inputs, ret_ty, block)
-    }
-
-    fn write_item<'s, 'cx>(view: &View, ecx: &'cx mut ExtCtxt<'cx>, w: &'s mut ItemWrite) {
-        let item = create_view_item(ecx, DUMMY_SP, view);
-        w.write_item(ecx, item);
+    impl<L: Lang, S: IntoOutputItem<L>> WriteOutputItems<L> for S {
+        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
+            let item = self.into_output_item(ecx, &"root");
+            w.write_output_item(ecx, item);
+        }
     }
 }
 
@@ -273,9 +278,10 @@ pub mod named_output_writer {
 }
 
 pub fn create_template_result<'cx>(ecx: &'cx mut ExtCtxt<'cx>, w_ident: ast::Ident, template: &Template) -> Box<MacResult + 'cx> {
-    use self::item_writer::WriteItems;
+    use self::output_item_writer::{WriteOutputItems, OutputItemWrite};
+    use self::lang::{Lang, Html, Js};
 
     let mut items: Vec<P<ast::Item>> = vec![];
-    template.write_items(ecx, &mut items);
+    template.write_output_items(ecx, &mut items as &mut OutputItemWrite<Html>);
     MacEager::items(SmallVector::many(items))
 }

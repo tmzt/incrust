@@ -73,9 +73,10 @@ pub mod output {
 
 pub mod output_ast {
     use super::{Template, TemplateNode};
-    use codegen::item_writer::{WriteItems, ItemWrite};
+    use codegen::output_item_writer::{WriteOutputItems, OutputItemWrite};
     use syntax::ext::base::{ExtCtxt, MacResult, MacEager, TTMacroExpander};
 
+    /*
     impl WriteItems for Template {
         fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite) {
             for node in &self.nodes {
@@ -95,6 +96,7 @@ pub mod output_ast {
             }
         }
     }
+    */
 }
 
 // NEXTREV: Make this depend on syntax/syntex

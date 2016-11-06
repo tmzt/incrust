@@ -110,17 +110,18 @@ mod output_ast {
     use output_actions::{OutputAction};
     use codegen::IntoBlock;
     use codegen::lang::{Lang, Html, Js};
-    use codegen::item_writer::{WriteItems, ItemWrite};
+    use codegen::output_item_writer::{WriteOutputItems, OutputItemWrite};
     use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
     use codegen::output_stmt_writer::{WriteOutputStmts, OutputStmtWrite};
 
+    /*
     impl IntoBlock for View {
         fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
             let mut stmts = vec![];
             let w_ident = ecx.ident_of("out");
-            //&self.write_output_stmts(ecx, &mut stmts, w_ident);
+            self.write_output_stmts::(ecx, &mut stmts, w_ident);
             stmts.push(quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap());
-            ecx.block(DUMMY_SP, stmts)            
+            ecx.block(DUMMY_SP, stmts)
         }
     }
 
@@ -131,6 +132,18 @@ mod output_ast {
         let inputs = vec![];
         let ret_ty = quote_ty!(ecx, String);
         ecx.item_fn(span, name, inputs, ret_ty, block)
+    }
+    */
+
+    /*
+    impl<S: WriteOutputStmts<Html>> IntoBlock for S {
+        fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block> {
+            let mut stmts = vec![];
+            let w_ident = ecx.ident_of("out");
+            self.write_output_stmts(ecx, &mut stmts, w_ident);
+            stmts.push(quote_stmt!(ecx, let mut $w_ident = String::new()).unwrap());
+            ecx.block(DUMMY_SP, stmts)
+        }
     }
 
     impl WriteItems for View {
@@ -144,6 +157,7 @@ mod output_ast {
             w.write_item(ecx, item);
         }
     }
+    */
 
     /*
     pub fn create_view_item<'cx>(ecx: &'cx ExtCtxt, view: &View) -> P<ast::Item> {

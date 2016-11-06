@@ -21,7 +21,6 @@ use nodes::template_node::Template;
 
 use codegen;
 use codegen::lang::{Lang, Html, Js};
-use codegen::item_writer::WriteItems;
 use codegen::output_string_writer::WriteOutputStrings;
 
 
