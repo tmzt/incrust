@@ -9,14 +9,7 @@ use simple_expr::SimpleExpr;
 pub enum ContentNode {
     ElementNode(Element),
     ExprNode(SimpleExpr),
-    //LiteralNode(TemplateLiteral),
-}
-
-/// Represents a static literal value within the contents of a view or element.
-#[derive(Clone, Debug)]
-pub struct ContentLiteral {
-    span: Span,
-    val: LitValue
+    LiteralNode(LitValue),
 }
 
 /// Literal (static) value.
@@ -108,6 +101,7 @@ pub mod output_ast {
         fn into_output_actions(&self) -> Vec<OutputAction> {
             match self {
                 &ContentNode::ElementNode(ref element) => element.into_output_actions(),
+                &ContentNode::LiteralNode(ref lit) => lit.into_output_actions(),
                 &ContentNode::ExprNode(ref simple_expr) => {
                     // TODO: Return a WriteResult serializing simple_expr
                     vec![OutputAction::WriteResult(simple_expr.clone())]
@@ -123,6 +117,10 @@ pub mod output_ast {
                     element.write_output_actions(w);
                 },
 
+                &ContentNode::LiteralNode(ref lit) => {
+                    lit.write_output_actions(w);
+                },
+
                 &ContentNode::ExprNode(ref simple_expr) => {
                     // TODO: Write a WriteResult serializing simple_expr
                     w.write_output_action(&OutputAction::WriteResult(simple_expr.clone()));
@@ -133,18 +131,12 @@ pub mod output_ast {
 }
 
 pub mod output_ast_literal {
-    use super::{ContentNode, ContentLiteral, LitValue};
+    use super::{ContentNode, LitValue};
     use syntax::tokenstream::TokenTree;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::quote::rt::ToTokens;
-    use output_actions::{WriteOutputActions, OutputActionWrite, OutputAction};
-
-    impl ToTokens for ContentLiteral {
-        fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
-            Vec::from(self.val.to_tokens(ecx).as_slice())
-        }
-    }
+    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl ToTokens for LitValue {
         fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
@@ -159,9 +151,13 @@ pub mod output_ast_literal {
         }
     }
 
-    impl WriteOutputActions for ContentLiteral {
-        fn write_output_actions(&self, w: &mut OutputActionWrite) {
-            self.val.write_output_actions(w);
+    impl IntoOutputActions for LitValue {
+        fn into_output_actions(&self) -> Vec<OutputAction> {
+            match self {
+                &LitValue::LitString(ref contents) => {
+                    vec![OutputAction::Write(contents.to_owned())]
+                }
+            }
         }
     }
 

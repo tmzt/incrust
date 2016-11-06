@@ -39,6 +39,7 @@ pub enum OutputAction {
 
 mod output_strings {
     use super::{OutputAction, WriteOutputActions};
+    use syntax::codemap::{DUMMY_SP, Span};
     use syntax::ext::base::ExtCtxt;
     use codegen::lang::{Lang, Js, Html};
     use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
@@ -55,12 +56,15 @@ mod output_strings {
 
     impl WriteOutputStrings<Html> for OutputAction {
         fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Html>) {
+            ecx.span_warn(DUMMY_SP, &format!("Writing output action: {:?}", &self));
             match self {
                 &OutputAction::Write(ref contents) => {
+                    ecx.span_warn(DUMMY_SP, &format!("Writing output string for output action: {}", contents));
                     w.write_output_string(ecx, &contents);
                 },
 
                 &OutputAction::WriteResult(ref simple_expr) => {
+                    ecx.span_warn(DUMMY_SP, &format!("Writing output string for WriteResult"));
                     &simple_expr.write_output_strings(ecx, w);
                 },
 

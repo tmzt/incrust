@@ -160,6 +160,7 @@ pub mod parse {
                         "view" => {
                             ecx.span_warn(span, "Parsing view");
                             let view = try!(parse_view(ecx, &mut parser, span));
+                            nodes.push(TemplateNode::ViewNode("root".to_owned(), view));
                         },
 
                         _ => {

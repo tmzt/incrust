@@ -1,22 +1,23 @@
 // TODO: Look into expanding these macros
 use std::fmt::Write;
 
-pub fn render_template_main(html: &mut String, js: &mut String, head_tags: &mut String) {
-    template! main {
-        view root [
-            div [
-                h1 [ {"Counter: "} {counter} ]
-            ]
+template! main {
+    view root [
+        div [
+            h1 [ {"Counter: "} {counter} ]
         ]
+    ]
 
-        store counter {
-            default => (0);
-            action INCREMENT => (counter + 1);
-            action DECREMENT => (counter - 1)
-        }
+    store counter {
+        default => (0);
+        action INCREMENT => (counter + 1);
+        action DECREMENT => (counter - 1)
+    }
 
-        render $html <= view root
-    };
+}
+
+pub fn render_template_main(html: &mut String, js: &mut String, head_tags: &mut String) {
+    render_template_root!(html, js, main);
 
     /*
     define_template! main {

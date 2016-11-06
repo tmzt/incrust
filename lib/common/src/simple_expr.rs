@@ -234,6 +234,7 @@ pub mod output_ast {
 
 mod output_strings {
     use super::{SimpleExpr, SimpleExprToken};
+    use syntax::codemap::DUMMY_SP;
     use syntax::ext::base::ExtCtxt;
     use codegen::lang::{Lang, Js, Html};
     use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
@@ -243,6 +244,7 @@ mod output_strings {
         fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<Html>) {
             let mut s = String::new();
             for token in &self.tokens {
+                ecx.span_warn(DUMMY_SP, &format!("Writing token: {:?}", &token));
                 match token {
                     &SimpleExprToken::VarReference(ref var_name) => {
                         w.write_output_string(ecx, &format!("{}", var_name));
