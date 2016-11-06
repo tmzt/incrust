@@ -60,16 +60,6 @@ pub mod parse {
                 token::Ident(_) => {
                     let element = try!(parse_element(ecx, parser, span, node_type));
                     nodes.push(ContentNode::ElementNode(element));
-
-                    /*
-                    if let token::Ident(ref ident) = parser.token {
-                        let element_type = ident.name.to_string();
-                        ecx.span_warn(span, &format!("Parsing contents ({:?}) - got element type: {:?}", &node_type, &element_type));
-
-                        let element = try!(parse_element(ecx, parser, span, &element_type));
-                        nodes.push(ContentNode::ElementNode(element));
-                    }
-                    */
                 },
 
                 token::OpenDelim(token::Brace) => {

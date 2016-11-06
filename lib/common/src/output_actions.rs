@@ -82,39 +82,6 @@ mod output_strings {
             }
         }
     }
-
-    /*
-    mod internal {
-        use super::super::{OutputAction, WriteOutputActions, OutputActionWrite};
-        use syntax::ext::base::ExtCtxt;
-        use codegen::lang::{Lang, Html, Js};
-        use codegen::output_string_writer::{WriteOutputStrings, OutputStringWrite};
-
-        struct Wrapper<'s, 'cx, L: Lang + 's> {
-            ecx: &'cx ExtCtxt<'cx>,
-            w: &'s mut StringWrite<L>
-        }
-
-        macro_rules! lang {
-            ($lang: ty) => {
-                impl<'s, 'cx> OutputActionWrite for Wrapper<'s, 'cx, $lang> {
-                    fn write_output_action(&mut self, output_action: &OutputAction) {
-                        //&output_action.write_strings(&self.ecx, &mut self.w);
-                    }
-                }
-
-                impl<S: WriteOutputActions> WriteOutputStrings<$lang> for S {
-                    fn write_output_strings<'s, 'cx>(&self, ecx: &'cx ExtCtxt, w: &'s mut OutputStringWrite<$lang>) {
-                        //let mut wrapper = Wrapper { ecx: ecx, w: w };
-                        //&self.write_output_actions(&mut wrapper);
-                    }
-                }
-            }
-        }
-        lang!(Html);
-        //lang!(Js);
-    }
-    */
 }
 
 impl OutputActionWrite for Vec<OutputAction> {
@@ -215,35 +182,6 @@ impl IntoWriteStmt for OutputAction {
         }
     }
 }
-
-/*
-impl IntoJsOutputCall for OutputAction {
-    fn into_js_output_call(&self) -> String {
-        match *self {
-            OutputAction::Write(ref contents) => {
-                format!("IncrementalDOM.text('{}')", contents)
-            },
-
-            // For now, write the expression as a string
-            OutputAction::WriteResult(ref template_expr) => {
-                template_expr.into_js_output_call()
-            },
-
-            OutputAction::WriteOpen(ref element_type) => {
-                format!("IncrementalDOM.elementOpen('{}')", element_type)
-            },
-
-            OutputAction::WriteClose(ref element_type) => {
-                format!("IncrementalDOM.elementClose('{}')", element_type)
-            },
-
-            OutputAction::WriteVoid(ref element_type) => {
-                format!("IncrementalDOM.elementVoid('{}')", element_type)
-            }
-        }
-    }
-}
-*/
 
 impl WriteJs for OutputAction {
     //fn write_js<W>(&self, js: &mut W) where W: JsWrite {

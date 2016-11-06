@@ -38,10 +38,6 @@ macro_rules! define_named_template {
     })
 }
 
-trait WriteBlockFactory {
-    fn create_write_block<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w_ident: ast::Ident) -> Box<MacResult + 'cx>;
-}
-
 pub trait ToData<D, L: Lang> {
     fn to_data<'cx>(&self, &'cx ExtCtxt) -> D;
 }
@@ -98,31 +94,6 @@ macro_rules! lang_expander_empty {
 lang_expander!(Html, String);
 lang_expander_empty!(Js, String);
 //lang_expander!(Js);
-
-/*
-impl WriteBlockFactory for LangSyntaxExt<Rust> {
-    fn create_write_block<'cx>(&self, ecx: &'cx ExtCtxt<'cx>, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
-        //codegen::create_template_write_block(ecx, w_ident, &self.decl.views)
-        codegen::create_template_result(ecx, w_ident, &self.decl.template)
-    }
-}
-*/
-
-/*
-impl WriteBlockFactory for LangSyntaxExt<Js> {
-    fn create_write_block<'cx>(&self, ecx: &'cx mut ExtCtxt, w_ident: ast::Ident) -> Box<MacResult + 'cx> {
-        /*
-        let funcs: Vec<String> = self.decl.views.iter()
-            .map(|view| view.into_js_function(ecx))
-            .intersperse("; ".into())
-            .collect();
-        */
-        let funcs: Vec<String> = vec![];
-
-        codegen::create_write_statements_block(ecx, w_ident, funcs.as_slice())MacResult
-    }
-}
-*/
 
 /// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
 /// which will render the parsed template in the given language.

@@ -98,24 +98,6 @@ pub mod parse {
         parser.bump();
 
         loop {
-            /*
-            if let &token::CloseDelim(token::Brace) = &parser.token {
-                ecx.span_warn(span, "Got close expression - completed expression");
-                parser.bump();
-                break;
-            };
-
-            if let &token::Ident(_) = &parser.token {
-                match parse_var_reference(ecx, &mut parser, span) {
-                    Ok(SimpleExprToken::VarReference(ref var_name)) => {
-                        w.var_reference(var_name);
-                    },
-                    _ => { ecx.span_warn(span, "Unable to parse VarReference for this ident"); }
-                };
-                continue;
-            };
-            */
-
             match parser.token {
                 token::CloseDelim(token::Brace) => {
                     ecx.span_warn(span, "Got close expression - completed expression");
@@ -172,26 +154,6 @@ pub mod parse {
         Ok(simple_expr)
     }
 }
-
-/*
-pub mod output {
-    use super::{SimpleExpr, SimpleExprToken};
-    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
-    use syntax::ext::base::ExtCtxt;
-
-    impl IntoOutputActions for SimpleExpr {
-        fn into_output_actions<'cx>(&self, ecx: &'cx ExtCtxt) -> Vec<OutputAction> {
-            vec![OutputAction::WriteResult(self.clone())]
-        }
-    }
-
-    impl WriteOutputActions for SimpleExpr {
-        fn write_output_actions(&self, w: &mut OutputActionWrite) {
-            w.write_output_action(&OutputAction::WriteResult(self.clone()));
-        }
-    }
-}
-*/
 
 pub mod output_ast {
     use syntax::ast;
