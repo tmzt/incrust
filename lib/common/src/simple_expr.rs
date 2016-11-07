@@ -10,6 +10,8 @@ pub trait WriteSimpleExpr {
 pub enum SimpleExprToken {
     VarReference(String),
     LitString(String),
+    OpenBrace,
+    CloseBrace,
     OpenParen,
     CloseParen,
     BinopPlus,
@@ -22,6 +24,12 @@ pub struct SimpleExpr {
     tokens: Vec<SimpleExprToken>
 }
 
+impl SimpleExpr {
+    pub fn tokens(&self) -> &[SimpleExprToken] {
+        &self.tokens
+    }
+}
+
 pub trait ToSimpleExprTokens {
     fn to_simple_expr_tokens() -> Vec<SimpleExprToken>;
 }
@@ -29,6 +37,9 @@ pub trait ToSimpleExprTokens {
 pub trait SimpleExprWrite {
     fn var_reference(&mut self, var_name: &str);
     fn string_lit(&mut self, lit: &str);
+
+    fn open_brace(&mut self);
+    fn close_brace(&mut self);
 
     fn open_paren(&mut self);
     fn close_paren(&mut self);
@@ -46,12 +57,20 @@ impl SimpleExprWrite for Vec<SimpleExprToken> {
         self.push(SimpleExprToken::LitString(lit.to_owned()));
     }
 
+    fn open_brace(&mut self) {
+        self.push(SimpleExprToken::OpenBrace);
+    }
+
+    fn close_brace(&mut self) {
+        self.push(SimpleExprToken::CloseBrace);
+    }
+
     fn open_paren(&mut self) {
         self.push(SimpleExprToken::OpenParen);
     }
 
     fn close_paren(&mut self) {
-        self.push(SimpleExprToken::CloseParen);        
+        self.push(SimpleExprToken::CloseParen);
     }
 
     fn binop_plus(&mut self) {
@@ -64,7 +83,9 @@ impl SimpleExprWrite for Vec<SimpleExprToken> {
 }
 
 pub mod parse {
+    use syntax::ast::{self, LitKind};
     use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::parse::token::DelimToken;
     use syntax::parse::token::BinOpToken as binops;
     use syntax::parse::token::Lit as literals;
     use syntax::ext::base::ExtCtxt;
@@ -77,6 +98,8 @@ pub mod parse {
 
         let mut var_name = String::new();
         loop {
+            ecx.span_warn(span, &format!("Parsing var reference - token: {:?}", &parser.token));
+
             match parser.token {
                 token::Ident(ref ident) => {
                     var_name.push_str(&ident.name.to_string());
@@ -89,36 +112,55 @@ pub mod parse {
                     break;
                 }
             }
+            parser.bump();
         }
+        ecx.span_warn(span, &format!("Parsing var reference - complete: {:?}", &var_name));
         Ok(SimpleExprToken::VarReference(var_name.to_owned()))
     }
 
-    fn parse_expr_into<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, w: &mut SimpleExprWrite) -> PResult<'a, ()> {
-        // Consume opening brace
-        parser.bump();
-
+    fn parse_expr_contents_into<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, w: &mut SimpleExprWrite, end_token: DelimToken) -> PResult<'a, ()> {
         loop {
+            ecx.span_warn(span, &format!("Parsing expression contents - token: {:?}", &parser.token));
+
             match parser.token {
-                token::CloseDelim(token::Brace) => {
-                    ecx.span_warn(span, "Got close expression - completed expression");
+                token::CloseDelim(_) if &parser.token == &token::CloseDelim(end_token) => {
+                    //try!(parser.expect(&token::CloseDelim(end_token)));
+                    ecx.span_warn(span, &format!("Got close [{:?}] - completed expression", &end_token));
                     break;
                 },
 
                 token::Ident(_) => {
+                    ecx.span_warn(span, &format!("Got ident - parsing var reference"));
+                    
                     match parse_var_reference(ecx, parser, span) {
                         Ok(SimpleExprToken::VarReference(ref var_name)) => {
                             w.var_reference(var_name);
                         },
                         _ => { ecx.span_warn(span, "Unable to parse VarReference for this ident"); }
                     };
+                    // Don't bump
+                    continue;
                 },
 
+                token::Literal(_, _) => {
+                    let lit = try!(parser.parse_lit());
+                    if let LitKind::Str(s, _) = lit.node {
+                        let string_value = &s.to_string();
+                        ecx.span_warn(span, &format!("Parsing simple expression - got literal: {}", &string_value));
+                        w.string_lit(&string_value);
+                    };
+                    // Don't bump
+                    continue;
+                },
+
+                /*
                 token::Literal(literals::Str_(ref contents), _) => {
                     let string_value = &contents.to_string();
 
                     ecx.span_warn(span, &format!("Parsing simple expression - got literal: {:?}", &string_value));
                     w.string_lit(&string_value);
                 },
+                */
 
                 token::BinOp(binops::Plus) => {
                     w.binop_plus();
@@ -146,9 +188,9 @@ pub mod parse {
         Ok(())
     }
 
-    pub fn parse_simple_expr<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, SimpleExpr> {
+    pub fn parse_simple_expr<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, end_delim: DelimToken) -> PResult<'a, SimpleExpr> {
         let mut tokens = Vec::new();
-        parse_expr_into(ecx, &mut parser, span, &mut tokens);
+        parse_expr_contents_into(ecx, &mut parser, span, &mut tokens, end_delim);
 
         let simple_expr = SimpleExpr { span: span, tokens: tokens };
         Ok(simple_expr)
@@ -216,6 +258,14 @@ mod output_strings {
                         w.write_output_string(ecx, &format!("\"{}\"", contents));
                     },
 
+                    &SimpleExprToken::OpenBrace => {
+                        w.write_output_string(ecx, &format!("{{"));
+                    },
+
+                    &SimpleExprToken::CloseBrace => {
+                        w.write_output_string(ecx, &format!("}}"));
+                    },
+
                     &SimpleExprToken::OpenParen => {
                         w.write_output_string(ecx, &format!("("));
                     },
@@ -251,6 +301,14 @@ pub mod js_write {
 
                     &SimpleExprToken::LitString(ref contents) => {
                         js.string_lit(contents);
+                    },
+
+                    &SimpleExprToken::OpenBrace => {
+                        js.open_brace();
+                    },
+
+                    &SimpleExprToken::CloseBrace => {
+                        js.close_brace();
                     },
 
                     &SimpleExprToken::OpenParen => {

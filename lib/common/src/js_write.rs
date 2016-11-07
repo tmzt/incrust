@@ -21,6 +21,9 @@ pub trait JsWriteSimpleExpr {
     fn var_reference(&mut self, var_name: &str);
     fn string_lit(&mut self, lit: &str);
 
+    fn open_brace(&mut self);
+    fn close_brace(&mut self);
+
     fn open_paren(&mut self);
     fn close_paren(&mut self);
 
@@ -63,8 +66,16 @@ impl<T: Write> JsWriteSimpleExpr for T {
         write!(self, "\"{}\"", lit);
     }
 
+    fn open_brace(&mut self) {
+        write!(self, "{{");
+    }
+
+    fn close_brace(&mut self) {
+        write!(self, "}}");
+    }
+
     fn open_paren(&mut self) {
-        write!(self, "()");
+        write!(self, "(");
     }
 
     fn close_paren(&mut self) {

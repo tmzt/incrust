@@ -27,19 +27,22 @@ pub mod parse {
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::quote::rt::ToTokens;
     use syntax::parse::{token, PResult};
+    use syntax::parse::token::DelimToken;
     use syntax::parse::parser::Parser;
     use nodes::element_node::parse::parse_element;
 
     use output_actions::{OutputAction, IntoOutputActions};
-    use simple_expr::SimpleExpr;
+    use simple_expr::{SimpleExpr, SimpleExprToken};
     use simple_expr::parse::parse_simple_expr;
 
+    /*
     fn parse_expr_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, ContentNode> {
         try!(parser.expect(&token::OpenDelim(token::Brace)));
 
-        let simple_expr = try!(parse_simple_expr(ecx, &mut parser, span));
+        let simple_expr = try!(parse_simple_expr(ecx, &mut parser, span, token::Brace));
         Ok(ContentNode::ExprNode(simple_expr))
     }
+    */
 
     #[derive(Clone, Debug)]
     pub enum NodeType {
@@ -47,10 +50,40 @@ pub mod parse {
         Named(String)
     }
 
+    fn lit_string(tokens: &[SimpleExprToken]) -> Option<String> {
+        let mut out = String::new();
+        for token in tokens {
+            if let &SimpleExprToken::LitString(ref contents) = token {
+                   out.push_str(contents);
+                   continue;
+            };
+
+            return None;
+        }
+        return Some(out)
+    }
+
+    fn parse_simple_expr_or_lit_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, end_delim: DelimToken) -> PResult<'a, ContentNode> {
+        try!(parser.expect(&token::OpenDelim(token::Brace)));
+        let simple_expr = try!(parse_simple_expr(ecx, &mut parser, span, token::Brace));
+        {
+            let tokens = &simple_expr.tokens();
+            let lit_string = lit_string(tokens);
+
+            if let Some(contents) = lit_string {
+                return Ok(ContentNode::LiteralNode(LitValue::LitString(contents)));
+            }
+        }
+
+        Ok(ContentNode::ExprNode(simple_expr))
+    }
+
     pub fn parse_contents<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, node_type: &NodeType) -> PResult<'a, Vec<ContentNode>> {
         let mut nodes: Vec<ContentNode> = Vec::new();
 
         loop {
+            ecx.span_warn(span, &format!("Parsing contents ({:?}) - token: {:?}", &node_type, &parser.token));
+
             match parser.token {
                 token::CloseDelim(token::Bracket) => {
                     ecx.span_warn(span, &format!("Parsing contents ({:?}) - complete", &node_type));
@@ -64,9 +97,8 @@ pub mod parse {
 
                 token::OpenDelim(token::Brace) => {
                     // Start of expression, which can be a literal value
-                    // NEXTREV: Handle literal differently, so it can be statically compiled
                     ecx.span_warn(span, "Parsing contents - got open expression");
-                    let node = try!(parse_expr_node(ecx, &mut parser, span));
+                    let node = try!(parse_simple_expr_or_lit_node(ecx, &mut parser, span, token::Brace));
                     ecx.span_warn(span, &format!("Parsing contents - expression: {:?}", &node));
                     nodes.push(node);
                 },

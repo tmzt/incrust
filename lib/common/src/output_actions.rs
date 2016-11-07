@@ -59,7 +59,7 @@ mod output_strings {
             ecx.span_warn(DUMMY_SP, &format!("Writing output action: {:?}", &self));
             match self {
                 &OutputAction::Write(ref contents) => {
-                    ecx.span_warn(DUMMY_SP, &format!("Writing output string for output action: {}", contents));
+                    ecx.span_warn(DUMMY_SP, &format!("Writing output string for Write output action: {}", contents));
                     w.write_output_string(ecx, &contents);
                 },
 

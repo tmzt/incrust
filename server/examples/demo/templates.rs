@@ -4,15 +4,17 @@ use std::fmt::Write;
 template! main {
     view root [
         div [
-            h1 [ {"Counter: "} {counter} ]
+            h1 [ {"Counter: "}{counter} ]
         ]
     ]
 
+    /*
     store counter {
         default => (0);
         action INCREMENT => (counter + 1);
         action DECREMENT => (counter - 1)
     }
+    */
 
 }
 
