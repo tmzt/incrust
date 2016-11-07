@@ -55,6 +55,7 @@ mod output {
     use super::View;
     use syntax::ext::base::ExtCtxt;
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
+    use js_write::{WriteJsFunctions, JsWriteFunctions, WriteJs};
 
     impl IntoOutputActions for View {
         fn into_output_actions<'cx>(&self) -> Vec<OutputAction> {
@@ -74,6 +75,20 @@ mod output {
             for node in &self.nodes {
                 node.write_output_actions(w);
             }
+        }
+    }
+
+    impl WriteJsFunctions for View {
+        fn write_js_functions(&self, funcs: &mut JsWriteFunctions) {
+            let view_name = self.name();
+            let func_name = format!("rusttemplate_render_template_{}_view_{}_calls", "main", &view_name);
+
+            let mut output_actions = Vec::new();
+            self.write_output_actions(&mut output_actions);
+
+            funcs.function(&func_name, &|js| {
+                output_actions.write_js(js);
+            });
         }
     }
 }

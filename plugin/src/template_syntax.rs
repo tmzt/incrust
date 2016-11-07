@@ -58,6 +58,7 @@ pub mod expander {
     */
 
     use incrust_common::codegen::output_item_writer::IntoOutputItem;
+    use incrust_common::codegen::named_output::{NamedOutput, NamedOutputType};
 
     pub enum RenderLang {
         RenderHtml,
@@ -80,14 +81,18 @@ pub mod expander {
         macro_rules! define_lang_outputs (
             ($ecx: expr, $template: ident, $template_name: expr, $lang: ident) => ({
                 let lang = stringify!($lang).to_lowercase();
-                let tmpl: &IntoOutputItem<$lang> = &$template;
+                let nodes = $template.nodes();
+                let sources: Vec<P<ast::Item>> = nodes.iter().map(|node| {
+                    $ecx.span_warn(DUMMY_SP, &format!("Source: {:?}", &node));
+                    let lang_node: &IntoOutputItem<$lang> = node;
+                    let item = lang_node.into_output_item($ecx, (node as &NamedOutput<$lang>).output_name());
+                    $ecx.span_warn(DUMMY_SP, &format!("Source item: {:?}", &item));
+                    item
+                }).collect();
+                sources
 
-                //let mut items: Vec<P<ast::Item>> = vec![];
-                //tmpl.write_output_items(ecx, &mut items as &mut OutputItemWrite<$lang>);
-                
-                //let item = tmpl.into_output_item(ecx, &"root");
-                //MacEager::items(SmallVector::one(item))
-                tmpl.into_output_item(ecx, &"root")
+                //let tmpl: &IntoOutputItem<$lang> = &$template;
+                //tmpl.into_output_item(ecx, &"root")
             })
         );
 
@@ -96,8 +101,8 @@ pub mod expander {
                 ecx.span_warn(span, &format!("Parsed template: {:?}", &template));
 
                 let mut items = Vec::new();
-                items.push(define_lang_outputs!(ecx, template, "main", Html));
-                items.push(define_lang_outputs!(ecx, template, "main", Js));
+                items.append(&mut define_lang_outputs!(ecx, template, "main", Html));
+                items.append(&mut define_lang_outputs!(ecx, template, "main", Js));
 
                 //MacEager::items(SmallVector::many(items))
                 // Empty (but must consist of items)                                                                                                    
@@ -119,8 +124,21 @@ pub mod expander {
         parser.expect(&token::Comma);
         let template_name = try!(parser.parse_ident()).to_string();
         parser.expect(&token::Comma);
+        let output_ty = try!(parser.parse_ident()).to_string();
+        parser.expect(&token::Comma);
+        let output_name = try!(parser.parse_ident()).to_string();
+        parser.expect(&token::Comma);
+        let lang = try!(parser.parse_ident());
 
-        let lang_str = try!(parser.parse_ident()).to_string().to_lowercase();
+        match output_ty {
+            _ if output_ty == "view" => (),
+            _ if output_ty == "store" => (),
+            _ => {
+                ecx.span_fatal(span, &format!("Unsupported output type."));
+            }
+        };
+
+        let lang_str = lang.to_string().to_lowercase();
         let render_lang = match &lang_str {
             _ if lang_str == "html" => RenderLang::RenderHtml,
             _ if lang_str == "js" => RenderLang::RenderJs,
@@ -129,16 +147,18 @@ pub mod expander {
             }
         };
 
-        let view_ident = ecx.ident_of(&format!("rusttemplate_render_template_{}_view_{}_{}", &template_name, "root", lang_str));
+        // rusttemplate_render_template_main_store_counter_js
+        // rusttemplate_render_template_main_view_root_js
+
+        // example: rusttemplate_render_template_main_view_root_html
+        // example: rusttemplate_render_template_main_store_counter_js
+        let render_ident = ecx.ident_of(&format!("rusttemplate_render_template_{}_{}_{}_{}", &template_name, &output_ty, &output_name, &lang_str));
         let expr = quote_expr!(ecx, {
-            //rusttemplate_render_template_main_view_root_html($html_writer, $js_writer);
-            $view_ident($html_writer, $js_writer);
+            $render_ident($html_writer, $js_writer);
         });
         let stmt = ecx.stmt_expr(expr);
 
         Ok(MacEager::stmts(SmallVector::one(stmt)))
-        //Ok(MacEager::items(SmallVector::zero()))
-        //Ok(MacEager::items(SmallVector::zero()))
     }
 
     /// Macro implementation: create a set of macros of the form emit_$lang_view_$template!($output_var);
@@ -148,9 +168,9 @@ pub mod expander {
         process_contents(ecx, span, ident, &mut parser)
     }
 
-    /// Macro implementation: render named template root view
-    /// ($html_writer: ident, $js_writer: ident, $template_name: ident, $view_name: ident, $render_lang: ident)
-    pub fn expand_render_template_root<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
+    /// Macro implementation: render named output in template, with output name
+    /// ($html_writer: ident, $js_writer: ident, $output_ty: ident, $template_name: ident, $output_name: ident, $render_lang: ident)
+    pub fn expand_render_output<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
         let mut parser = ecx.new_parser_from_tts(&tts);
         match process_render(ecx, span, &mut parser) {
             Ok(result) => {

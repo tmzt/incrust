@@ -13,6 +13,7 @@ pub struct Template {
 
 impl Template {
     pub fn name(&self) -> &str { &self.name }
+    pub fn nodes(&self) -> &[TemplateNode] { &self.nodes }
 }
 
 // Represents a parsed node in template contents
@@ -27,18 +28,39 @@ pub mod output {
     use super::{Template, TemplateNode};
     use syntax::ext::base::ExtCtxt;
     use output::ToData;
-    use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
+    use output_actions::{OutputAction, WriteOutputActions, OutputActionWrite};
+    use js_write::{WriteJsFunctions, JsWriteFunctions};
     use codegen::lang::{Lang, Html, Js};
+    use codegen::named_output::{NamedOutput, NamedOutputType, WriteNamedOutputs, NamedOutputWrite};
     use codegen::output_string_writer::WriteOutputStrings;
 
-    impl IntoOutputActions for TemplateNode {
-        fn into_output_actions(&self) -> Vec<OutputAction> {
+    /*
+    impl WriteNamedOutputs for Template {
+        fn write_named_outputs(&self, w: &mut NamedOutputWrite) {
+            for node in &self.nodes {
+                node.write_named_outputs(w);
+            }
+        }
+    }
+
+    impl NamedOutput for Template {
+        fn output_name(&self) -> &str { &self.name }
+        fn output_type(&self) -> NamedOutputType { NamedOutputType::ViewOutput }
+    }
+    */
+
+    impl<L: Lang> NamedOutput<L> for TemplateNode {
+        fn output_name(&self) -> &str {
             match self {
-                &TemplateNode::ViewNode(ref view_name, ref view) => view.into_output_actions(),
-                &TemplateNode::StoreNode(ref store_name, ref store) => {
-                    // TODO: Define what we want to do here
-                    vec![]
-                }
+                &TemplateNode::ViewNode(ref view_name, _) => view_name,
+                &TemplateNode::StoreNode(ref store_name, _) => store_name
+            }
+        }
+
+        fn output_type(&self) -> NamedOutputType {
+            match self {
+                &TemplateNode::ViewNode(_, _) => NamedOutputType::ViewOutput,
+                &TemplateNode::StoreNode(_, _) => NamedOutputType::StoreOutput
             }
         }
     }
@@ -60,6 +82,23 @@ pub mod output {
         }
     }
 
+    impl WriteJsFunctions for Template {
+        fn write_js_functions(&self, w: &mut JsWriteFunctions) {
+            for node in &self.nodes {
+                node.write_js_functions(w);
+            }
+        }
+    }
+
+    impl WriteJsFunctions for TemplateNode {
+        fn write_js_functions(&self, w: &mut JsWriteFunctions) {
+            match self {
+                &TemplateNode::ViewNode(ref view_name, ref view) => { view.write_js_functions(w); },
+                &TemplateNode::StoreNode(ref store_name, ref store) => { store.write_js_functions(w); },
+            }
+        }
+    }
+
     /*
     impl ToData<String, Html> for Template {
         fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> String {
@@ -73,8 +112,38 @@ pub mod output {
 
 pub mod output_ast {
     use super::{Template, TemplateNode};
+    use codegen::lang::{Lang, Html, Js};
     use codegen::output_item_writer::{WriteOutputItems, OutputItemWrite};
     use syntax::ext::base::{ExtCtxt, MacResult, MacEager, TTMacroExpander};
+
+    /*
+    impl<L: Lang> WriteOutputItems<L> for Template {
+        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
+
+        }
+    }
+
+    impl<L: Lang> WriteOutputItems<L> for TemplateNode {
+        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
+            match self {
+                &TemplateNode::ViewNode(_, ref view) => { view.write_output_items(ecx, w); },
+                &TemplateNode::StoreNode(_, ref store) => { store.write_output_items(ecx, w); },
+            }
+        }
+    }
+    */
+
+    /*
+    impl<L: Lang> WriteOutputItems<L> for ViewNode {
+        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
+        }
+    }
+
+    impl<L: Lang> WriteOutputItems<L> for StoreNode {
+        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
+        }
+    }
+    */
 
     /*
     impl WriteItems for Template {
@@ -138,6 +207,7 @@ pub mod parse {
     use output_actions::{OutputAction, IntoOutputActions};
     use nodes::view_node::{View};
     use nodes::view_node::parse::parse_view;
+    use nodes::store_node::Store;
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr;
 
@@ -145,6 +215,8 @@ pub mod parse {
         let mut nodes = Vec::new();
 
         loop {
+            ecx.span_warn(span, &format!("Parsing template - got token: {:?}", &parser.token));
+
             match parser.token {
                 token::CloseDelim(token::Bracket) => {
                     ecx.span_warn(span, "Parsing template - got closing bracket");
@@ -162,6 +234,18 @@ pub mod parse {
                             let view = try!(parse_view(ecx, &mut parser, span));
                             nodes.push(TemplateNode::ViewNode("root".to_owned(), view));
                         },
+
+                        "store" => {
+                            ecx.span_warn(span, "Parsing store");
+
+                            // TODO: Expand the syntax we can parse
+                            let store_ident = try!(parser.parse_ident());
+                            let store_name = store_ident.to_string();
+                            let store = Store::empty(span, &store_name);
+                            ecx.span_warn(span, &format!("Parsing store - got: {:?}", store));
+
+                            nodes.push(TemplateNode::StoreNode(store_name.to_owned(), store));
+                        }
 
                         _ => {
                             ecx.span_warn(span, &format!("Parsing template - got other keyword: {:?}", keyword));

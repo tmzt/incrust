@@ -69,6 +69,40 @@ pub mod ext {
     }
 }
 
+pub mod named_output {
+    use super::lang::{Lang, Html, Js};
+    use syntax::ext::base::ExtCtxt;
+    use syntax::ptr::P;
+    use syntax::ast;
+
+    pub enum NamedOutputType {
+        ViewOutput,
+        StoreOutput
+    }
+
+    impl ToString for NamedOutputType {
+        fn to_string(&self) -> String {
+            match self {
+                &NamedOutputType::ViewOutput => "view".to_owned(),
+                &NamedOutputType::StoreOutput => "store".to_owned()
+            }
+        }
+    }
+
+    pub trait NamedOutput<L: Lang> {
+        fn output_name(&self) -> &str;
+        fn output_type(&self) -> NamedOutputType;
+    }
+
+    pub trait WriteNamedOutputs<L: Lang> {
+        fn write_named_outputs(&self, w: &mut NamedOutputWrite<L>);
+    }
+
+    pub trait NamedOutputWrite<L: Lang> {
+        fn write_named_output<'cx>(&self, ecx: &'cx ExtCtxt, name: &str, ty: NamedOutputType, item: P<ast::Item>);
+    }
+}
+
 pub mod output_string_writer {
     use std::iter::Iterator;
     use syntax::codemap::{DUMMY_SP, Span};
@@ -192,6 +226,7 @@ pub mod output_item_writer {
     use syntax::ext::build::AstBuilder;
     use codegen::IntoBlock;
     use codegen::lang::{Lang, Html, Js};
+    use codegen::named_output::NamedOutput;
     use nodes::view_node::View;
     use nodes::template_node::Template;
 
@@ -210,8 +245,51 @@ pub mod output_item_writer {
 
     macro_rules! lang_impl (
         ($lang: ty) => (
-            impl<S: WriteOutputStmts<$lang>> IntoOutputItem<$lang> for S {
+            impl<S: WriteOutputStmts<$lang> + NamedOutput<$lang>> IntoOutputItem<$lang> for S {
                 fn into_output_item<'cx>(&self, ecx: &'cx ExtCtxt, name: &str) -> P<ast::Item> {
+                    let lang = stringify!($lang).to_lowercase();
+                    let output_name = self.output_name();
+                    let output_type = self.output_type().to_string().to_lowercase();
+
+                    let item_name = ecx.ident_of(&format!("rusttemplate_render_template_{}_{}_{}_{}", "main", &output_type, &output_name, &lang));
+                    ecx.span_warn(DUMMY_SP, &format!("Writing item {}", item_name.to_string()));
+
+                    let html_writer = ecx.ident_of("html_writer");
+                    let js_writer = ecx.ident_of("js_writer");
+
+                    let block = {
+                        let mut out = Vec::new();
+
+                        match lang {
+                            _ if lang == "html" => {
+                                self.write_output_stmts(ecx, &mut out, html_writer);
+                            },
+                            _ if lang == "js" => {
+                                self.write_output_stmts(ecx, &mut out, js_writer);
+                            },
+                            _ => {
+                                ecx.span_warn(DUMMY_SP, &format!("Unsupported language, won't render: {:?}", stringify!($lang)));
+                            }
+                        }
+                        ecx.block(DUMMY_SP, out)
+                    };
+
+                    let item = {
+                        let args = vec![
+                            ecx.arg(DUMMY_SP, html_writer, quote_ty!(ecx, &mut String)),
+                            ecx.arg(DUMMY_SP, js_writer, quote_ty!(ecx, &mut String)),
+                        ];
+                        let ret_ty = quote_ty!(ecx, ());
+                        ecx.item_fn(DUMMY_SP, item_name, args, ret_ty, block)
+                    };
+
+                    item
+                }
+            }
+
+            /*
+            impl<S: WriteOutputStmts<$lang>> WriteOutputItems<$lang> for S {
+                fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>)
                     let lang = stringify!($lang).to_lowercase();
                     let item_name = ecx.ident_of(&format!("rusttemplate_render_template_{}_view_{}_{}", "main", "root", &lang));
                     ecx.span_warn(DUMMY_SP, &format!("Writing item {}", item_name.to_string()));
@@ -248,6 +326,7 @@ pub mod output_item_writer {
                     item
                 }
             }
+            */
 
             /*
             impl<S: IntoOutputBlock<$lang>> IntoOutputItem<$lang> for S {
@@ -303,12 +382,14 @@ pub mod output_item_writer {
         }
     }
 
+    /*
     impl<L: Lang, S: IntoOutputItem<L>> WriteOutputItems<L> for S {
         fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
             let item = self.into_output_item(ecx, &"root");
             w.write_output_item(ecx, item);
         }
     }
+    */
 }
 
 mod utils {
