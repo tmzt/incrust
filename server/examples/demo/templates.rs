@@ -19,7 +19,8 @@ template! main {
 }
 
 pub fn render_template_main(html: &mut String, js: &mut String, head_tags: &mut String) {
-    render_template_root!(html, js, main);
+    render_template_root!(html, js, main, Html);
+    render_template_root!(html, js, main, Js);
 
     write!(head_tags, "<script>{},\n\t{}</script>\n",
         "register_main_view(function() { return create_store_counter(); }",

@@ -29,6 +29,7 @@ pub mod expander {
     }
     */
 
+    /*
     fn define_lang_outputs<'cx, L: Lang>(ecx: &'cx ExtCtxt, template: &Template, template_name: &str, lang: &str) -> Box<MacResult + 'cx> {
         let mut items: Vec<P<ast::Item>> = vec![];
         template.write_output_items(ecx, &mut items as &mut OutputItemWrite<Html>);
@@ -54,8 +55,14 @@ pub mod expander {
         let item = (template as &IntoOutputItem<Html>).into_output_item(ecx, &"root");
         MacEager::items(SmallVector::one(item))
     }
+    */
 
     use incrust_common::codegen::output_item_writer::IntoOutputItem;
+
+    pub enum RenderLang {
+        RenderHtml,
+        RenderJs
+    }
 
     fn process_contents<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, ident: ast::Ident, mut parser: &mut Parser) -> Box<MacResult + 'cx> {
         let template_name = ident.name.to_string();
@@ -73,7 +80,14 @@ pub mod expander {
         macro_rules! define_lang_outputs (
             ($ecx: expr, $template: ident, $template_name: expr, $lang: ident) => ({
                 let lang = stringify!($lang).to_lowercase();
-                define_lang_outputs::<$lang>($ecx, &$template, $template_name, &lang)
+                let tmpl: &IntoOutputItem<$lang> = &$template;
+
+                //let mut items: Vec<P<ast::Item>> = vec![];
+                //tmpl.write_output_items(ecx, &mut items as &mut OutputItemWrite<$lang>);
+                
+                //let item = tmpl.into_output_item(ecx, &"root");
+                //MacEager::items(SmallVector::one(item))
+                tmpl.into_output_item(ecx, &"root")
             })
         );
 
@@ -81,11 +95,14 @@ pub mod expander {
             Ok(template) => {
                 ecx.span_warn(span, &format!("Parsed template: {:?}", &template));
 
-                define_lang_outputs!(ecx, template, "main", Html)
+                let mut items = Vec::new();
+                items.push(define_lang_outputs!(ecx, template, "main", Html));
+                items.push(define_lang_outputs!(ecx, template, "main", Js));
 
                 //MacEager::items(SmallVector::many(items))
                 // Empty (but must consist of items)                                                                                                    
                 //MacEager::items(SmallVector::zero())
+                MacEager::items(SmallVector::many(items))
             },
 
             Err(mut err) => {
@@ -100,11 +117,19 @@ pub mod expander {
         parser.expect(&token::Comma);
         let js_writer = try!(parser.parse_ident());
         parser.expect(&token::Comma);
+        let template_name = try!(parser.parse_ident()).to_string();
+        parser.expect(&token::Comma);
 
-        let template_name = try!(parser.parse_ident());
+        let lang_str = try!(parser.parse_ident()).to_string().to_lowercase();
+        let render_lang = match &lang_str {
+            _ if lang_str == "html" => RenderLang::RenderHtml,
+            _ if lang_str == "js" => RenderLang::RenderJs,
+            _ => {
+                ecx.span_fatal(span, &format!("Unsupported render language."));
+            }
+        };
 
-        let template_name = template_name.to_string();
-        let view_ident = ecx.ident_of(&format!("rusttemplate_render_template_{}_view_{}_html", &template_name, "root"));
+        let view_ident = ecx.ident_of(&format!("rusttemplate_render_template_{}_view_{}_{}", &template_name, "root", lang_str));
         let expr = quote_expr!(ecx, {
             //rusttemplate_render_template_main_view_root_html($html_writer, $js_writer);
             $view_ident($html_writer, $js_writer);
@@ -124,7 +149,7 @@ pub mod expander {
     }
 
     /// Macro implementation: render named template root view
-    /// ($html_writer: ident, $js_writer: ident, $template_name: ident)
+    /// ($html_writer: ident, $js_writer: ident, $template_name: ident, $view_name: ident, $render_lang: ident)
     pub fn expand_render_template_root<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, tts: &[TokenTree]) -> Box<MacResult + 'cx> {
         let mut parser = ecx.new_parser_from_tts(&tts);
         match process_render(ecx, span, &mut parser) {

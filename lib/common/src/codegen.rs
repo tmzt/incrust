@@ -222,8 +222,17 @@ pub mod output_item_writer {
                     let block = {
                         let mut out = Vec::new();
 
-                        // TODO: Support JS and HTML output
-                        self.write_output_stmts(ecx, &mut out, html_writer);
+                        match lang {
+                            _ if lang == "html" => {
+                                self.write_output_stmts(ecx, &mut out, html_writer);
+                            },
+                            _ if lang == "js" => {
+                                self.write_output_stmts(ecx, &mut out, js_writer);
+                            },
+                            _ => {
+                                ecx.span_warn(DUMMY_SP, &format!("Unsupported language, won't render: {:?}", stringify!($lang)));
+                            }
+                        }
                         ecx.block(DUMMY_SP, out)
                     };
 
