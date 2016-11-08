@@ -86,7 +86,8 @@ mod output {
             let mut output_actions = Vec::new();
             self.write_output_actions(&mut output_actions);
 
-            funcs.function(&func_name, &|js| {
+            // TODO: Generate the argument list
+            funcs.function(&func_name, vec!["counter"], &|js| {
                 output_actions.write_js(js);
             });
         }

@@ -7,9 +7,16 @@ pub trait WriteSimpleExpr {
 }
 
 #[derive(Clone, Debug)]
+pub enum SimpleExprNumber {
+    Int64(i64),
+    Int32(i32)
+}
+
+#[derive(Clone, Debug)]
 pub enum SimpleExprToken {
     VarReference(String),
     LitString(String),
+    LitNumber(SimpleExprNumber),
     OpenBrace,
     CloseBrace,
     OpenParen,
@@ -37,6 +44,7 @@ pub trait ToSimpleExprTokens {
 pub trait SimpleExprWrite {
     fn var_reference(&mut self, var_name: &str);
     fn string_lit(&mut self, lit: &str);
+    fn number_lit(&mut self, lit: &SimpleExprNumber);
 
     fn open_brace(&mut self);
     fn close_brace(&mut self);
@@ -55,6 +63,10 @@ impl SimpleExprWrite for Vec<SimpleExprToken> {
 
     fn string_lit(&mut self, lit: &str) {
         self.push(SimpleExprToken::LitString(lit.to_owned()));
+    }
+
+    fn number_lit(&mut self, lit: &SimpleExprNumber) {
+        self.push(SimpleExprToken::LitNumber(lit.to_owned()));
     }
 
     fn open_brace(&mut self) {
@@ -83,7 +95,7 @@ impl SimpleExprWrite for Vec<SimpleExprToken> {
 }
 
 pub mod parse {
-    use syntax::ast::{self, LitKind};
+    use syntax::ast::{self, LitKind, LitIntType, IntTy};
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::parse::token::DelimToken;
     use syntax::parse::token::BinOpToken as binops;
@@ -91,7 +103,7 @@ pub mod parse {
     use syntax::ext::base::ExtCtxt;
     use syntax::parse::{token, PResult};
     use syntax::parse::parser::Parser;
-    use super::{SimpleExpr, SimpleExprToken, SimpleExprWrite};
+    use super::{SimpleExpr, SimpleExprToken, SimpleExprNumber, SimpleExprWrite};
 
     fn parse_var_reference<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, SimpleExprToken> {
         // NEXTREV: Add JsPathExpr variant
@@ -143,23 +155,42 @@ pub mod parse {
 
                 token::Literal(_, _) => {
                     let lit = try!(parser.parse_lit());
-                    if let LitKind::Str(s, _) = lit.node {
-                        let string_value = &s.to_string();
-                        ecx.span_warn(span, &format!("Parsing simple expression - got literal: {}", &string_value));
-                        w.string_lit(&string_value);
-                    };
-                    // Don't bump
+                    match &lit.node {
+                        &LitKind::Str(ref s, _) => {
+                            let string_value = s.to_string();
+                            ecx.span_warn(span, &format!("Parsing simple expression - got literal string: {}", &string_value));
+                            w.string_lit(&string_value);
+                        },
+
+                        &LitKind::Int(n, int_ty) => {
+                            ecx.span_warn(span, &format!("Parsing simple expression - got literal int ({:?}): {}", int_ty, n));
+                            match int_ty {
+                                LitIntType::Signed(IntTy::I64) => {
+                                    w.number_lit(&SimpleExprNumber::Int64(n as i64));
+                                },
+
+                                LitIntType::Signed(IntTy::I32) => {
+                                    w.number_lit(&SimpleExprNumber::Int32(n as i32));
+                                },
+
+                                LitIntType::Unsuffixed => {
+                                    // TODO: Determine what we should do with this
+                                    w.number_lit(&SimpleExprNumber::Int64(n as i64));
+                                },
+
+                                _ => {
+                                    ecx.span_warn(span, &format!("Parsing simple expression - got unsupported number ({:?}): {:?}", int_ty, n));
+                                }
+                            }
+                        },
+
+                        _ => {
+                            ecx.span_warn(span, &format!("Parsing simple expression - got unsupported literal: {:?}", &lit.node));
+                        }
+                    }
+                    // Don't bump, as we already parsed the literal
                     continue;
                 },
-
-                /*
-                token::Literal(literals::Str_(ref contents), _) => {
-                    let string_value = &contents.to_string();
-
-                    ecx.span_warn(span, &format!("Parsing simple expression - got literal: {:?}", &string_value));
-                    w.string_lit(&string_value);
-                },
-                */
 
                 token::BinOp(binops::Plus) => {
                     w.binop_plus();
@@ -244,7 +275,7 @@ pub mod output_ast {
 }
 
 mod output_strings {
-    use super::{SimpleExpr, SimpleExprToken};
+    use super::{SimpleExpr, SimpleExprToken, SimpleExprNumber};
     use syntax::codemap::DUMMY_SP;
     use syntax::ext::base::ExtCtxt;
     use codegen::lang::{Lang, Js, Html};
@@ -263,6 +294,14 @@ mod output_strings {
 
                     &SimpleExprToken::LitString(ref contents) => {
                         w.write_output_string(ecx, &format!("\"{}\"", contents));
+                    },
+
+                    &SimpleExprToken::LitNumber(ref contents) => {
+                        let s = match contents {
+                            &SimpleExprNumber::Int64(n) => format!("{}", n),
+                            &SimpleExprNumber::Int32(n) => format!("{}", n)
+                        };
+                        w.write_output_string(ecx, &s);
                     },
 
                     &SimpleExprToken::OpenBrace => {
@@ -295,7 +334,7 @@ mod output_strings {
 }
 
 pub mod js_write {
-    use super::{SimpleExpr, SimpleExprToken};
+    use super::{SimpleExpr, SimpleExprToken, SimpleExprNumber};
     use js_write::{WriteJs, WriteJsSimpleExpr, JsWriteSimpleExpr};
 
     impl WriteJsSimpleExpr for SimpleExpr {
@@ -308,6 +347,13 @@ pub mod js_write {
 
                     &SimpleExprToken::LitString(ref contents) => {
                         js.string_lit(contents);
+                    },
+
+                    &SimpleExprToken::LitNumber(ref contents) => {
+                        match contents {
+                            &SimpleExprNumber::Int64(n) => { js.int64_lit(n); },
+                            &SimpleExprNumber::Int32(n) => { js.int32_lit(n); }
+                        };
                     },
 
                     &SimpleExprToken::OpenBrace => {

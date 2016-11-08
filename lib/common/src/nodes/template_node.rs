@@ -208,6 +208,7 @@ pub mod parse {
     use nodes::view_node::{View};
     use nodes::view_node::parse::parse_view;
     use nodes::store_node::Store;
+    use nodes::store_node::parse::parse_store;
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr;
 
@@ -237,14 +238,10 @@ pub mod parse {
 
                         "store" => {
                             ecx.span_warn(span, "Parsing store");
+                            let store = try!(parse_store(ecx, &mut parser, span));
+                            let store_name = store.name().to_owned();
 
-                            // TODO: Expand the syntax we can parse
-                            let store_ident = try!(parser.parse_ident());
-                            let store_name = store_ident.to_string();
-                            let store = Store::empty(span, &store_name);
-                            ecx.span_warn(span, &format!("Parsing store - got: {:?}", store));
-
-                            nodes.push(TemplateNode::StoreNode(store_name.to_owned(), store));
+                            nodes.push(TemplateNode::StoreNode(store_name, store));
                         }
 
                         _ => {

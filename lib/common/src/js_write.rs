@@ -24,15 +24,9 @@ pub trait WriteJsSimpleExpr {
     fn write_js_simple_expr(&self, js: &mut JsWriteSimpleExpr);
 }
 
-/// Represents the state of the JS output where we are beginning a switch expression.
-pub trait WriteJsSwitch {
-        fn write_js_switch(&self, switch: &mut JsWriteSwitch);
-}
-
 /// Represents the state of the JS output where we are in a switch expression body.
 pub trait WriteJsSwitchBody {
-        fn write_js_switch_body(&self, switch: &mut JsWriteSwitchBody) {
-        }
+    fn write_js_switch_body(&self, switch: &mut JsWriteSwitchBody);
 }
 
 pub trait JsWrite {
@@ -42,16 +36,19 @@ pub trait JsWrite {
     fn call_method(&mut self, method_name: &str, f: &Fn(&mut JsWriteParamList));
     //fn write_simple_expr<F>(&mut self, f: F) where F: FnOnce(&mut JsWriteSimpleExpr);
 
-    fn switch_expr(&mut self, f: &Fn(&mut JsWriteSwitch));
+    /// Switch expression where the value to match is a simple variable reference
+    fn switch_expr_simple(&mut self, var_name: &str, f: &Fn(&mut JsWriteSwitchBody));
 }
 
 pub trait JsWriteFunctions {
-    fn function(&mut self, func_name: &str, f: &Fn(&mut JsWrite));    
+    fn function(&mut self, func_name: &str, args: Vec<&str>, f: &Fn(&mut JsWrite));
 }
 
 pub trait JsWriteSimpleExpr {
     fn var_reference(&mut self, var_name: &str);
     fn string_lit(&mut self, lit: &str);
+    fn int64_lit(&mut self, n: i64);
+    fn int32_lit(&mut self, n: i32);
 
     fn open_brace(&mut self);
     fn close_brace(&mut self);
@@ -63,16 +60,14 @@ pub trait JsWriteSimpleExpr {
     fn binop_minus(&mut self);
 }
 
-/// Allow writing switch expression value and body.
-pub trait JsWriteSwitch {
-    fn switch_value(&mut self, f: &Fn(&mut JsWriteSimpleExpr));
-    fn switch_body(&mut self, f: &Fn(&mut JsWriteSwitchBody));
-}
-
 /// Allow writing switch case labels in a simplified expression syntax. This supports the Redux use case.
 pub trait JsWriteSwitchBody {
     fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteSimpleExpr));
     fn default_case(&mut self, f: &Fn(&mut JsWriteSimpleExpr));
+}
+
+pub trait JsWriteFuncParamList {
+    fn param(&mut self, var_name: &str);
 }
 
 pub trait JsWriteParamList {
@@ -100,22 +95,10 @@ impl<T: Write> JsWrite for T {
     }
     */
 
-    fn switch_expr(&mut self, f: &Fn(&mut JsWriteSwitch)) {
-        write!(self, "switch ");
+    fn switch_expr_simple(&mut self, var_name: &str, f: &Fn(&mut JsWriteSwitchBody)) {
+        write!(self, "switch ({}) {{", &var_name);
         f(self);
-    }
-}
-
-// NEXTREV: Enforce order
-impl<T: Write> JsWriteSwitch for T {
-    fn switch_value(&mut self, f: &Fn(&mut JsWriteSimpleExpr)) {
-        //f(self);
-        write!(self, "(counter)");
-    }
-    fn switch_body(&mut self, f: &Fn(&mut JsWriteSwitchBody)) {
-        write!(self, "{{");
-        f(self);
-        write!(self, "}}");
+        write!(self, "}};");
     }
 }
 
@@ -134,8 +117,9 @@ impl<T: Write> JsWriteSwitchBody for T {
 }
 
 impl<T: Write> JsWriteFunctions for T {
-    fn function(&mut self, func_name: &str, f: &Fn(&mut JsWrite)) {
-        write!(self, "function {}() {{", func_name);
+    fn function(&mut self, func_name: &str, args: Vec<&str>, f: &Fn(&mut JsWrite)) {
+        let args_str = &args.join(", ");
+        write!(self, "function {}({}) {{ ", func_name, &args_str);
         f(self);
         write!(self, "}};");
     }
@@ -148,6 +132,14 @@ impl<T: Write> JsWriteSimpleExpr for T {
 
     fn string_lit(&mut self, lit: &str) {
         write!(self, "\"{}\"", lit);
+    }
+
+    fn int32_lit(&mut self, n: i32) {
+        write!(self, "{}", n);
+    }
+
+    fn int64_lit(&mut self, n: i64) {
+        write!(self, "{}", n);
     }
 
     fn open_brace(&mut self) {

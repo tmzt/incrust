@@ -18,12 +18,13 @@ pub fn render(main_fn: fn(html: &mut String, js: &mut String, head_tags: &mut St
 
     // TODO: Remove the 'start rendering' link
         let entry = r"
-            function register_main_view(store_factory, root_view, start) {
+            function register_main_view(store_factory, view_factory, start) {
                 document.addEventListener('DOMContentLoaded', function() {
+                    var view = view_factory();
                     var root = document.querySelector('#root');
                     function render(state) {
                         console.log('Patching IncrementalDOM');
-                        IncrementalDOM.patch(root, root_view, state);
+                        IncrementalDOM.patch(root, view, state);
                     }
 
                     var store = store_factory();
