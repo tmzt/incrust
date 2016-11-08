@@ -24,12 +24,25 @@ pub trait WriteJsSimpleExpr {
     fn write_js_simple_expr(&self, js: &mut JsWriteSimpleExpr);
 }
 
+/// Represents the state of the JS output where we are beginning a switch expression.
+pub trait WriteJsSwitch {
+        fn write_js_switch(&self, switch: &mut JsWriteSwitch);
+}
+
+/// Represents the state of the JS output where we are in a switch expression body.
+pub trait WriteJsSwitchBody {
+        fn write_js_switch_body(&self, switch: &mut JsWriteSwitchBody) {
+        }
+}
+
 pub trait JsWrite {
     fn function(&mut self, func_name: &str, f: &Fn(&mut JsWrite));
 
     fn let_statement(&mut self, var_name: &str, f: &FnOnce(&mut JsWriteSimpleExpr));
     fn call_method(&mut self, method_name: &str, f: &Fn(&mut JsWriteParamList));
     //fn write_simple_expr<F>(&mut self, f: F) where F: FnOnce(&mut JsWriteSimpleExpr);
+
+    fn switch_expr(&mut self, f: &Fn(&mut JsWriteSwitch));
 }
 
 pub trait JsWriteFunctions {
@@ -48,6 +61,18 @@ pub trait JsWriteSimpleExpr {
 
     fn binop_plus(&mut self);
     fn binop_minus(&mut self);
+}
+
+/// Allow writing switch expression value and body.
+pub trait JsWriteSwitch {
+    fn switch_value(&mut self, f: &Fn(&mut JsWriteSimpleExpr));
+    fn switch_body(&mut self, f: &Fn(&mut JsWriteSwitchBody));
+}
+
+/// Allow writing switch case labels in a simplified expression syntax. This supports the Redux use case.
+pub trait JsWriteSwitchBody {
+    fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteSimpleExpr));
+    fn default_case(&mut self, f: &Fn(&mut JsWriteSimpleExpr));
 }
 
 pub trait JsWriteParamList {
@@ -74,6 +99,38 @@ impl<T: Write> JsWrite for T {
     fn write_simple_expr<F>(&mut self, f: F) where F: FnOnce(&mut JsWriteSimpleExpr) {
     }
     */
+
+    fn switch_expr(&mut self, f: &Fn(&mut JsWriteSwitch)) {
+        write!(self, "switch ");
+        f(self);
+    }
+}
+
+// NEXTREV: Enforce order
+impl<T: Write> JsWriteSwitch for T {
+    fn switch_value(&mut self, f: &Fn(&mut JsWriteSimpleExpr)) {
+        //f(self);
+        write!(self, "(counter)");
+    }
+    fn switch_body(&mut self, f: &Fn(&mut JsWriteSwitchBody)) {
+        write!(self, "{{");
+        f(self);
+        write!(self, "}}");
+    }
+}
+
+impl<T: Write> JsWriteSwitchBody for T {
+    fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteSimpleExpr)) {
+        write!(self, "case '{}': return", &case_str);
+        f(self);
+        write!(self, ";");
+    }
+
+    fn default_case(&mut self, f: &Fn(&mut JsWriteSimpleExpr)) {
+        write!(self, "default: return ");
+        f(self);
+        write!(self, ";");
+    }
 }
 
 impl<T: Write> JsWriteFunctions for T {
