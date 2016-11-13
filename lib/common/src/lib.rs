@@ -29,38 +29,16 @@ use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 
 pub mod codegen;
-pub mod jsgen;
-pub mod node;
-pub mod view;
 pub mod output_actions;
-pub mod compiled_view;
-
-use codegen::{IntoWriteStmt, create_template_block};
-use jsgen::{IntoJsFunction, IntoJsOutputCall};
-use output_actions::{OutputAction, IntoOutputActions};
-use node::{Element, TemplateExpr, TemplateNode, parse_node, parse_contents};
-use view::{View, parse_view};
+pub mod simple_expr;
+pub mod js_write;
+pub mod nodes;
+pub mod output;
 
 
-// Represents a parsed template in incrust
-pub struct Template {
-    views: Vec<View>
+/*
+pub fn tts_to_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, mut parser: &mut Parser<'a>, tts: &[TokenTree]) -> PResult<'a, Template> {
+    let template = try!(nodes::template_node::parse::parse_template(ecx, &mut parser, DUMMY_SP));
+    Ok(template)
 }
-
-impl Template {
-    pub fn from_views(views: Vec<View>) -> Template {
-        Template { views: views }
-    }
-}
-
-trait IntoBlock {
-    fn into_block<'cx>(&self, ecx: &'cx ExtCtxt) -> P<ast::Block>;
-}
-
-pub fn tts_to_template<'cx, 'a>(ecx: &'cx mut ExtCtxt, parser: &mut Parser<'a>, tts: &[TokenTree]) -> PResult<'a, Template> {
-    
-    let view = try!(parse_view(ecx, parser, DUMMY_SP));
-    let views = vec![view];
-
-    Ok(Template { views: views })
-}
+*/
