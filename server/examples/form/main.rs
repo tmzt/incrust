@@ -3,37 +3,32 @@
 
 #[macro_use]
 extern crate nickel;
-
 #[macro_use]
 extern crate incrust_macros;
-
-extern crate incrust_common;
-
 #[macro_use]
 extern crate examples_common;
 
-mod templates;
 mod models;
-
-use std::path::Path;
-
-use nickel::{ Nickel, HttpRouter, StaticFilesHandler };
-
-use templates::render_template_main;
-use examples_common::render::render;
+use models::person_js;
 
 
-fn statics() -> StaticFilesHandler {
-    const CARGO_MANIFEST_DIR: Option<&'static str> = option_env!("CARGO_MANIFEST_DIR");
-    let root_dir = CARGO_MANIFEST_DIR.map(|s| Path::new(s))
-        .expect("Must provide CARGO_MANIFEST_DIR as cargo does pointing to the folder containing public/");
-    StaticFilesHandler::new(root_dir.join("public"))
+template! main {
+    store person {
+        default => ("{}");
+        action SET_FIRST_NAME => ("{first_name: \"first_name\"}");
+        action SET_LAST_NAME => ("{last_name: \"last_name\"}")
+    }
+
+    view root [
+        p [ {"First name:  "} {(data.first_name)} ]
+        p [ {"Last name:  "} {(data.last_name)} ]
+        div [
+            form [
+                input []
+                input []
+            ]
+        ]
+    ]
 }
 
-fn main() {
-    let mut server = Nickel::new();
-    server.utilize(statics());
-    server.get("**", middleware!(render(render_template_main)));
-
-    server.listen("127.0.0.1:6767");
-}
+example!(main, root, person, person_js(), "function(store) { setInterval(function() { store.dispatch({type: 'SET_FIRST_NAME'}); }, 1000); });");

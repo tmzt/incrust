@@ -175,19 +175,6 @@ pub mod output_stmt_writer {
             self.push(stmt);
         }
     }
-
-    /*
-    macro_rules! stmt_writer_impl (
-        ($lang: ident) => (
-            impl<'s> OutputStmtWrite<$lang> for Vec<ast::Stmt> {
-                fn write_output_stmt(&mut self, stmt: ast::Stmt) {
-                    self.push(stmt);
-                }
-            }
-        )
-    );
-    stmt_writer_impl!(Html);
-    */
 }
 
 pub mod output_block_writer {

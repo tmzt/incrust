@@ -27,7 +27,6 @@ pub enum TemplateNode {
 pub mod output {
     use super::{Template, TemplateNode};
     use syntax::ext::base::ExtCtxt;
-    use output::ToData;
     use output_actions::{OutputAction, WriteOutputActions, OutputActionWrite};
     use js_write::{WriteJsFunctions, JsWriteFunctions};
     use codegen::lang::{Lang, Html, Js};
@@ -98,74 +97,6 @@ pub mod output {
             }
         }
     }
-
-    /*
-    impl ToData<String, Html> for Template {
-        fn to_data<'cx>(&self, ecx: &'cx ExtCtxt) -> String {
-            let mut html = String::new();
-            &self.write_output_strings(ecx, &mut html);
-            html
-        }
-    }
-    */
-}
-
-pub mod output_ast {
-    use super::{Template, TemplateNode};
-    use codegen::lang::{Lang, Html, Js};
-    use codegen::output_item_writer::{WriteOutputItems, OutputItemWrite};
-    use syntax::ext::base::{ExtCtxt, MacResult, MacEager, TTMacroExpander};
-
-    /*
-    impl<L: Lang> WriteOutputItems<L> for Template {
-        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
-
-        }
-    }
-
-    impl<L: Lang> WriteOutputItems<L> for TemplateNode {
-        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
-            match self {
-                &TemplateNode::ViewNode(_, ref view) => { view.write_output_items(ecx, w); },
-                &TemplateNode::StoreNode(_, ref store) => { store.write_output_items(ecx, w); },
-            }
-        }
-    }
-    */
-
-    /*
-    impl<L: Lang> WriteOutputItems<L> for ViewNode {
-        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
-        }
-    }
-
-    impl<L: Lang> WriteOutputItems<L> for StoreNode {
-        fn write_output_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut OutputItemWrite<L>) {
-        }
-    }
-    */
-
-    /*
-    impl WriteItems for Template {
-        fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite) {
-            for node in &self.nodes {
-                node.write_items(ecx, w);
-            }
-        }
-    }
-
-    impl WriteItems for TemplateNode {
-        fn write_items<'cx>(&self, ecx: &'cx ExtCtxt, w: &mut ItemWrite) {
-            match self {
-                &TemplateNode::ViewNode(_, ref view) => {
-                    view.write_items(ecx, w);
-                },
-                _ => {
-                }
-            }
-        }
-    }
-    */
 }
 
 // NEXTREV: Make this depend on syntax/syntex

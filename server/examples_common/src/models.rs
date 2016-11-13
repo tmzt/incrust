@@ -1,7 +1,3 @@
-
-#![plugin(incrust_plugin)] extern crate incrust_plugin;
-
-
 #[macro_export]
 macro_rules! data_struct {
     (struct $name:ident {

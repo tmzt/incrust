@@ -1,8 +1,7 @@
 
-use syntax::codemap::{Span, DUMMY_SP};
-
 use super::element_node::Element;
 use simple_expr::SimpleExpr;
+
 
 /// Represents a parsed content node
 #[derive(Clone, Debug)]
@@ -23,26 +22,14 @@ pub enum LitValue {
 pub mod parse {
     use super::{ContentNode, LitValue};
     use syntax::tokenstream::TokenTree;
-    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::codemap::Span;
     use syntax::ext::base::ExtCtxt;
-    use syntax::ext::quote::rt::ToTokens;
     use syntax::parse::{token, PResult};
-    use syntax::parse::token::DelimToken;
     use syntax::parse::parser::Parser;
     use nodes::element_node::parse::parse_element;
 
-    use output_actions::{OutputAction, IntoOutputActions};
-    use simple_expr::{SimpleExpr, SimpleExprToken};
+    use simple_expr::SimpleExprToken;
     use simple_expr::parse::parse_simple_expr;
-
-    /*
-    fn parse_expr_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, ContentNode> {
-        try!(parser.expect(&token::OpenDelim(token::Brace)));
-
-        let simple_expr = try!(parse_simple_expr(ecx, &mut parser, span, token::Brace));
-        Ok(ContentNode::ExprNode(simple_expr))
-    }
-    */
 
     #[derive(Clone, Debug)]
     pub enum NodeType {
@@ -63,7 +50,7 @@ pub mod parse {
         return Some(out)
     }
 
-    fn parse_simple_expr_or_lit_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, end_delim: DelimToken) -> PResult<'a, ContentNode> {
+    fn parse_simple_expr_or_lit_node<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, ContentNode> {
         try!(parser.expect(&token::OpenDelim(token::Brace)));
         let simple_expr = try!(parse_simple_expr(ecx, &mut parser, span, token::Brace));
         {
@@ -98,7 +85,7 @@ pub mod parse {
                 token::OpenDelim(token::Brace) => {
                     // Start of expression, which can be a literal value
                     ecx.span_warn(span, "Parsing contents - got open expression");
-                    let node = try!(parse_simple_expr_or_lit_node(ecx, &mut parser, span, token::Brace));
+                    let node = try!(parse_simple_expr_or_lit_node(ecx, &mut parser, span));
                     ecx.span_warn(span, &format!("Parsing contents - expression: {:?}", &node));
                     nodes.push(node);
                 },
@@ -117,7 +104,6 @@ pub mod parse {
 pub mod output_ast {
     use super::ContentNode;
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
-    use syntax::ext::base::ExtCtxt;
 
     impl IntoOutputActions for ContentNode {
         fn into_output_actions(&self) -> Vec<OutputAction> {
@@ -153,25 +139,10 @@ pub mod output_ast {
 }
 
 pub mod output_ast_literal {
-    use super::{ContentNode, LitValue};
+    use super::LitValue;
     use syntax::tokenstream::TokenTree;
-    use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
-    use syntax::ext::quote::rt::ToTokens;
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
-
-    impl ToTokens for LitValue {
-        fn to_tokens(&self, ecx: &ExtCtxt) -> Vec<TokenTree> {
-            let val = match *self {
-                LitValue::LitString(ref contents) => {
-                    let s = quote_expr!(ecx, $contents.to_owned());
-                    quote_expr!(ecx, OutputAction::Write($s))
-                }
-            };
-
-            val.to_tokens(ecx)
-        }
-    }
 
     impl IntoOutputActions for LitValue {
         fn into_output_actions(&self) -> Vec<OutputAction> {

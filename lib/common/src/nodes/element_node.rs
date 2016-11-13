@@ -1,6 +1,5 @@
 
-use syntax::codemap::{Span, DUMMY_SP};
-
+use syntax::codemap::Span;
 use super::content_node::ContentNode;
 
 
@@ -14,14 +13,11 @@ pub struct Element {
 pub mod parse {
     use super::Element;
     use syntax::tokenstream::TokenTree;
-    use syntax::codemap::{Span, DUMMY_SP};
+    use syntax::codemap::Span;
     use syntax::ext::base::ExtCtxt;
     use syntax::parse::{token, PResult};
     use syntax::parse::parser::Parser;
 
-    use output_actions::{OutputAction, IntoOutputActions};
-    use simple_expr::SimpleExpr;
-    use simple_expr::parse::parse_simple_expr;
     use nodes::content_node::parse::{NodeType, parse_contents};
 
     pub fn parse_element<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, node_type: &NodeType) -> PResult<'a, Element> {
@@ -44,7 +40,6 @@ pub mod parse {
 
 pub mod output {
     use super::Element;
-    use syntax::ext::base::ExtCtxt;
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
 
     impl IntoOutputActions for Element {

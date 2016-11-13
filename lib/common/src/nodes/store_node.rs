@@ -1,5 +1,5 @@
 
-use syntax::codemap::{Span, DUMMY_SP};
+use syntax::codemap::Span;
 use simple_expr::SimpleExpr;
 
 
@@ -42,7 +42,6 @@ pub enum StoreNode {
 
 pub mod parse {
     use super::{Store, StoreNode};
-    use syntax::tokenstream::TokenTree;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::parse::{token, PResult};
@@ -142,7 +141,7 @@ pub mod output {
     use super::{Store, StoreNode};
     use syntax::ext::base::ExtCtxt;
     use output_actions::{OutputAction, IntoOutputActions, WriteOutputActions, OutputActionWrite};
-    use js_write::{WriteJsFunctions, JsWriteFunctions, WriteJs, WriteJsSwitchBody, JsWriteSwitchBody, WriteJsSimpleExpr};
+    use js_write::{WriteJsFunctions, JsWriteFunctions, WriteJsSwitchBody, JsWriteSwitchBody, WriteJsSimpleExpr};
 
     impl IntoOutputActions for Store {
         fn into_output_actions(&self) -> Vec<OutputAction> {
@@ -161,7 +160,7 @@ pub mod output {
     }
 
     impl WriteOutputActions for Store {
-        fn write_output_actions(&self, w: &mut OutputActionWrite) {
+        fn write_output_actions(&self, _: &mut OutputActionWrite) {
             // TODO: Implement
         }
     }
