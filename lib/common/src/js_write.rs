@@ -1,5 +1,9 @@
 
 use std::fmt::Write;
+use common_write::WriteAs;
+use value::Value;
+use object_expr::ObjectExprAssignment;
+
 
 pub trait WriteJs {
     fn write_js(&self, js: &mut JsWrite);
@@ -44,6 +48,10 @@ pub trait JsWriteFunctions {
     fn function(&mut self, func_name: &str, args: Vec<&str>, f: &Fn(&mut JsWrite));
 }
 
+pub trait JsWriteExpr {
+    fn write_value(&mut self, value: &Value);
+}
+
 pub trait JsWriteSimpleExpr {
     fn var_reference(&mut self, var_name: &str);
     fn string_lit(&mut self, lit: &str);
@@ -60,10 +68,31 @@ pub trait JsWriteSimpleExpr {
     fn binop_minus(&mut self);
 }
 
+pub trait JsWriteObjectExpr {
+    fn write_object_expr(&mut self, cls_name: &str, f: &Fn(&mut JsWriteObjectExprBody));
+}
+
+pub trait JsWriteObjectExprBody {
+    fn write_field_assignment(&mut self, field_name: &str, value: Value);
+}
+
+impl<T: Write> JsWriteObjectExpr for T {
+    fn write_object_expr(&mut self, cls_name: &str, f: &Fn(&mut JsWriteObjectExprBody)) {
+        write!(self, "{} {{", &cls_name);
+        f(self);
+        write!(self, "}}");
+    }
+}
+
+impl<T: Write> JsWriteObjectExprBody for T {
+    fn write_field_assignment(&mut self, field_name: &str, value: Value) {
+    }
+}
+
 /// Allow writing switch case labels in a simplified expression syntax. This supports the Redux use case.
 pub trait JsWriteSwitchBody {
-    fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteSimpleExpr));
-    fn default_case(&mut self, f: &Fn(&mut JsWriteSimpleExpr));
+    fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteExpr));
+    fn default_case(&mut self, f: &Fn(&mut JsWriteExpr));
 }
 
 pub trait JsWriteFuncParamList {
@@ -103,13 +132,13 @@ impl<T: Write> JsWrite for T {
 }
 
 impl<T: Write> JsWriteSwitchBody for T {
-    fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteSimpleExpr)) {
-        write!(self, "case '{}': return", &case_str);
+    fn case_str(&mut self, case_str: &str, f: &Fn(&mut JsWriteExpr)) {
+        write!(self, "case '{}': return ", &case_str);
         f(self);
         write!(self, ";");
     }
 
-    fn default_case(&mut self, f: &Fn(&mut JsWriteSimpleExpr)) {
+    fn default_case(&mut self, f: &Fn(&mut JsWriteExpr)) {
         write!(self, "default: return ");
         f(self);
         write!(self, ";");
@@ -122,6 +151,31 @@ impl<T: Write> JsWriteFunctions for T {
         write!(self, "function {}({}) {{ ", func_name, &args_str);
         f(self);
         write!(self, "}};");
+    }
+}
+
+impl<T: Write> JsWriteExpr for T {
+    fn write_value(&mut self, value: &Value) {
+        match value {
+            &Value::SimpleExprValue(ref simple_expr) => {
+                simple_expr.write_js_simple_expr(self);
+            },
+            
+            &Value::ObjectExprValue(ref object_expr) => {
+                write!(self, "{{");
+                for assignment in object_expr.assignments() {
+                    let (name, simple_expr) = match assignment {
+                        &ObjectExprAssignment::NewSimpleExprValue(ref name, ref simple_expr) => (name, simple_expr),
+                        &ObjectExprAssignment::UpdateSimpleExprValue(ref name, ref simple_expr) => (name, simple_expr)
+                    };
+
+                    write!(self, "{}: ", name).unwrap();
+                    simple_expr.write_js_simple_expr(self);
+                    write!(self, ", ").unwrap();
+                }
+                write!(self, "}}");
+            }
+        }
     }
 }
 

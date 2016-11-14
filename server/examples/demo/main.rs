@@ -18,7 +18,7 @@ template! main {
 
     view root [
         div [
-            h1 [ {"Counter: "}{counter} ]
+            h1 [ {"Counter: "}{store} ]
         ]
     ]
 }

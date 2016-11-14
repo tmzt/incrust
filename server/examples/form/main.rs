@@ -14,14 +14,15 @@ use models::person_js;
 
 template! main {
     store person {
-        default => ("{}");
-        action SET_FIRST_NAME => ("{first_name: \"first_name\"}");
-        action SET_LAST_NAME => ("{last_name: \"last_name\"}")
+        default => Person { first_name: (""), last_name: ("") };
+        action SET_FIRST_NAME => Person { first_name: ("first_name")};
+        action SET_LAST_NAME => Person { last_name: ("last_name")};
+        action SET_BOTH_NAMES => Person { first_name: ("Front-end"), last_name: ("User") }
     }
 
     view root [
-        p [ {"First name:  "} {(data.first_name)} ]
-        p [ {"Last name:  "} {(data.last_name)} ]
+        p [ {"First name:  "} {(store.first_name)} ]
+        p [ {"Last name:  "} {(store.last_name)} ]
         div [
             form [
                 input []
@@ -31,4 +32,4 @@ template! main {
     ]
 }
 
-example!(main, root, person, person_js(), "function(store) { setInterval(function() { store.dispatch({type: 'SET_FIRST_NAME'}); }, 1000); });");
+example!(main, root, person, person_js(), "function start(store) { setInterval(function() { store.dispatch({type: 'SET_BOTH_NAMES'}); }, 1000); };");

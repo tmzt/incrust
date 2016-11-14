@@ -5,6 +5,7 @@
 extern crate log;
 
 extern crate syntax;
+extern crate syntax_pos;
 extern crate rustc;
 extern crate rustc_plugin;
 extern crate itertools;
@@ -31,7 +32,10 @@ use syntax::ptr::P;
 pub mod codegen;
 pub mod output_actions;
 pub mod simple_expr;
+pub mod object_expr;
+pub mod common_write;
 pub mod js_write;
+pub mod value;
 pub mod nodes;
 
 

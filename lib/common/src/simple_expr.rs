@@ -105,7 +105,7 @@ pub mod parse {
     use syntax::parse::parser::Parser;
     use super::{SimpleExpr, SimpleExprToken, SimpleExprNumber, SimpleExprWrite};
 
-    fn parse_var_reference<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, SimpleExprToken> {
+    fn parse_var_reference<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span) -> PResult<'a, SimpleExprToken> {
         // NEXTREV: Add JsPathExpr variant
 
         let mut var_name = String::new();
@@ -130,7 +130,7 @@ pub mod parse {
         Ok(SimpleExprToken::VarReference(var_name.to_owned()))
     }
 
-    fn parse_expr_contents_into_until<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, w: &mut SimpleExprWrite, end_cond: &Fn(&token::Token) -> bool) -> PResult<'a, ()> {
+    fn parse_expr_contents_into_until<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span, w: &mut SimpleExprWrite, end_cond: &Fn(&token::Token) -> bool) -> PResult<'a, ()> {
         loop {
             ecx.span_warn(span, &format!("Parsing expression contents - token: {:?}", &parser.token));
 
@@ -218,17 +218,17 @@ pub mod parse {
         Ok(())
     }
 
-    pub fn parse_simple_expr_until<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, end_cond: &Fn(&token::Token) -> bool) -> PResult<'a, SimpleExpr> {
+    pub fn parse_simple_expr_until<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span, end_cond: &Fn(&token::Token) -> bool) -> PResult<'a, SimpleExpr> {
         let mut tokens = Vec::new();
-        try!(parse_expr_contents_into_until(ecx, &mut parser, span, &mut tokens, end_cond));
+        try!(parse_expr_contents_into_until(ecx, parser, span, &mut tokens, end_cond));
 
         let simple_expr = SimpleExpr { span: span, tokens: tokens };
         Ok(simple_expr)
     }
 
-    pub fn parse_simple_expr<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, end_delim: DelimToken) -> PResult<'a, SimpleExpr> {
+    pub fn parse_simple_expr<'cx, 'a>(ecx: &'cx ExtCtxt, parser: &mut Parser<'a>, span: Span, end_delim: DelimToken) -> PResult<'a, SimpleExpr> {
         let mut tokens = Vec::new();
-        try!(parse_expr_contents_into_until(ecx, &mut parser, span, &mut tokens, &|token| token == &token::CloseDelim(end_delim)));
+        try!(parse_expr_contents_into_until(ecx, parser, span, &mut tokens, &|token| token == &token::CloseDelim(end_delim)));
 
         let simple_expr = SimpleExpr { span: span, tokens: tokens };
         Ok(simple_expr)

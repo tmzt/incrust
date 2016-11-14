@@ -143,75 +143,69 @@ pub mod parse {
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr;
 
-    pub fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span, name: &str) -> PResult<'a, Template> {
-        let mut nodes = Vec::new();
+    enum TemplateNodeType {
+        ViewNode,
+        StoreNode
+    }
+
+    fn parse_template_node_type<'a>(parser: &mut Parser<'a>) -> PResult<'a, TemplateNodeType> {
+            let ident = (parser.parse_ident()?).to_string();
+            parser.span_warn(parser.span, &format!("Parsing template - ident: {}", ident));
+
+            match ident {
+                _ if ident == "view" => Ok(TemplateNodeType::ViewNode),
+                _ if ident == "store" => Ok(TemplateNodeType::StoreNode),
+
+                _ => {
+                    Err(parser.span_fatal(parser.prev_span, &format!("Parsing template - unsupported node type: {}", &ident)))
+                }
+            }
+    }
+
+    pub fn parse_template<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>, span: Span, name: &str) -> PResult<'a, Template> {
+        let mut nodes: Vec<TemplateNode> = vec![];
 
         loop {
-            ecx.span_warn(span, &format!("Parsing template - got token: {:?}", &parser.token));
+            parser.span_warn(parser.span, &format!("Parsing template - got token: {:?}", &parser.token));
 
             match parser.token {
                 token::CloseDelim(token::Bracket) => {
-                    ecx.span_warn(span, "Parsing template - got closing bracket");
+                    parser.span_warn(parser.span, "Parsing template - got closing bracket");
                     break;
                 },
 
                 token::Ident(_) => {
-                    let keyword_token = try!(parser.parse_ident());
-                    let keyword = keyword_token.name.to_string().to_owned();
+                    let node_type = parse_template_node_type(parser)?;
+                    match node_type {
+                        TemplateNodeType::ViewNode => {
+                            parser.span_warn(span, "Parsing view");
 
-                    ecx.span_warn(span, &format!("Parsing template - got keyword: {:?}", &keyword));
-                    match keyword.as_ref() {
-                        "view" => {
-                            ecx.span_warn(span, "Parsing view");
-                            let view = try!(parse_view(ecx, &mut parser, span));
-                            nodes.push(TemplateNode::ViewNode("root".to_owned(), view));
+                            let sp = parser.span.clone();
+                            let view = parse_view(ecx, parser, sp)?;
+                            let view_name = view.name().to_owned();
+                            nodes.push(TemplateNode::ViewNode(view_name, view));
                         },
 
-                        "store" => {
-                            ecx.span_warn(span, "Parsing store");
-                            let store = try!(parse_store(ecx, &mut parser, span));
+                        TemplateNodeType::StoreNode => {
+                            parser.span_warn(span, "Parsing store");
+                            let store = parse_store(ecx, parser)?;
                             let store_name = store.name().to_owned();
-
                             nodes.push(TemplateNode::StoreNode(store_name, store));
                         }
-
-                        _ => {
-                            ecx.span_warn(span, &format!("Parsing template - got other keyword: {:?}", keyword));
-                        }
-                    }
-
-                    /*
-                    let keyword = if let token::Ident(ref ident) = parser.token {
-                        let keyword = ident.name.to_string().to_owned();
-                        ecx.span_warn(span, &format!("Parsing template contents - got keyword: {:?}", &keyword));
-                        keyword
                     };
-                    */
-
-                    /*
-                    let keyword = parser.token.name.to_string().to_owned();
-
-                    ecx.span_warn(span, &format!("Parsing expression - got keyword: {:?}", &keyword));
-                    match keyword.as_ref() {
-                        "view" => {
-                            ecx.span_warn(span, "Parsing view");
-                        },
-
-                        _ => {
-                            ecx.span_warn(span, &format!("Parsing element: {:?}", keyword));
-                        }
-                    }
-                    */
                 },
 
                 _ => {
-                    ecx.span_err(span, &format!("Parsing template - got unexpected token: {:?}", parser.token));
+                    return Err(parser.span_fatal(span, &format!("Parsing template - got unexpected token: {:?}", parser.token)));
                 }
             }
         }
 
-        let template = Template { name: name.to_owned(), span: span, nodes: nodes };
-        Ok(template)
+        Ok(Template {
+            name: name.to_owned(),
+            span: span,
+            nodes: nodes
+        })
     }
 
 }

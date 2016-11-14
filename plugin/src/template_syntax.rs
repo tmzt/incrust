@@ -22,7 +22,7 @@ pub mod expander {
         RenderJs
     }
 
-    fn process_contents<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, ident: ast::Ident, mut parser: &mut Parser) -> Box<MacResult + 'cx> {
+    fn process_contents<'cx, 'r>(ecx: &'cx mut ExtCtxt<'r>, span: Span, ident: ast::Ident, mut parser: &mut Parser<'r>) -> Box<MacResult + 'cx> {
         let template_name = ident.name.to_string();
         ecx.span_warn(span, &format!("Parsing contents of template {}", &template_name));
 
@@ -39,7 +39,7 @@ pub mod expander {
             })
         );
 
-        match parse_template(ecx, &mut parser, span, &template_name) {
+        match parse_template(ecx, parser, span, &template_name) {
             Ok(template) => {
                 ecx.span_warn(span, &format!("Parsed template: {:?}", &template));
 

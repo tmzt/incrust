@@ -119,7 +119,7 @@ macro_rules! example {
 
             let mut extra_js = String::new();
             $(
-                writeln!(&mut extra_js, "<script>{}</script>", $extra_js);
+                writeln!(&mut extra_js, "{}", $extra_js);
             )*
 
             write!(head_tags, r"

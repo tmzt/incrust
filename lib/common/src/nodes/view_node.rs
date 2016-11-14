@@ -87,7 +87,7 @@ mod output {
             self.write_output_actions(&mut output_actions);
 
             // TODO: Generate the argument list
-            funcs.function(&func_name, vec!["counter"], &|js| {
+            funcs.function(&func_name, vec!["store"], &|js| {
                 output_actions.write_js(js);
             });
         }

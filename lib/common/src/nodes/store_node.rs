@@ -1,5 +1,6 @@
 
 use syntax::codemap::Span;
+use value::Value;
 use simple_expr::SimpleExpr;
 
 
@@ -36,68 +37,93 @@ impl Store {
 #[derive(Clone, Debug)]
 pub enum StoreNode {
     // TODO: Define nodes
-    DefaultExpr(SimpleExpr),
-    ActionExpr(String, SimpleExpr)
+    DefaultExpr(Value),
+    ActionExpr(String, Value)
 }
+
 
 pub mod parse {
     use super::{Store, StoreNode};
+    use syntax_pos::mk_sp;
     use syntax::codemap::{Span, DUMMY_SP};
     use syntax::ext::base::ExtCtxt;
     use syntax::parse::{token, PResult};
     use syntax::parse::parser::Parser;
+    use syntax::parse::common::SeqSep;
+    use value::Value;
+    use value::parse::parse_value;
     use simple_expr::SimpleExpr;
     use simple_expr::parse::parse_simple_expr_until;
+    use object_expr::parse::parse_object_expr;
 
-    fn parse_fat_arrow_expression<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, SimpleExpr> {
+    enum StoreArmType {
+        DefaultArm,
+        ActionArm,
+    }
+
+    /*
+    fn parse_fat_arrow_expression<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>, span: Span) -> PResult<'a, Value> {
         try!(parser.expect(&token::FatArrow));
 
-        let simple_expr = try!(parse_simple_expr_until(ecx, &mut parser, span, &|token| token == &token::Semi || token == &token::CloseDelim(token::Brace)));
+        let expr_tts = parser.parse_seq_to_before_end(&token::CloseDelim(token::Brace), SeqSep::trailing_allowed(token::Semi), |pp| pp.parse_token_tree());
+        let mut expr_parser = ecx.new_parser_from_tts(&expr_tts);
+
+        //let simple_expr = try!(parse_simple_expr_until(ecx, &mut parser, span, &|token| token == &token::Semi || token == &token::CloseDelim(token::Brace)));
+        let value = try!(parse_value(ecx, parser, span));
         if &parser.token != &token::CloseDelim(token::Brace) {
             parser.bump();
         }
-        Ok(simple_expr)
+        Ok(value)
     }
 
-    fn parse_action<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, StoreNode> {
+    fn parse_action<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>, span: Span) -> PResult<'a, StoreNode> {
         let act = try!(parser.parse_ident()).to_string().to_uppercase();
-        let simple_expr = try!(parse_fat_arrow_expression(ecx, &mut parser, span));
+        ecx.span_warn(span, &format!("Parsing store - got action {}", &act));
 
-        Ok(StoreNode::ActionExpr(act.to_owned(), simple_expr))
+        let value = try!(parse_fat_arrow_expression(ecx, parser, span));
+
+        Ok(StoreNode::ActionExpr(act.to_owned(), value))
     }
 
-    fn parse_default<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, StoreNode> {
-        let simple_expr = try!(parse_fat_arrow_expression(ecx, &mut parser, span));
+    fn parse_default<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>, span: Span) -> PResult<'a, StoreNode> {
+        let value = try!(parse_fat_arrow_expression(ecx, parser, span));
 
-        Ok(StoreNode::DefaultExpr(simple_expr))
+        Ok(StoreNode::DefaultExpr(value))
     }
 
-    fn parse_store_contents<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, Vec<StoreNode>> {
+    fn parse_store_contents<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>, span: Span) -> PResult<'a, Vec<StoreNode>> {
         let mut nodes: Vec<StoreNode> = Vec::new();
+
+        //let body_tts = parser.parse_seq_to_before_end(&token::CloseDelim(token::Brace), SeqSep::trailing_allowed(token::Semi), |pp| pp.parse_token_tree());
 
         loop {
             ecx.span_warn(span, &format!("Parsing store - token: {:?}", &parser.token));
 
             match parser.token {
-                token::CloseDelim(token::Brace) => {
+                token::Eof => {
                     ecx.span_warn(span, &format!("Parsing store - complete"));
-                    parser.bump();
-                    break;
+                    break;                    
                 },
 
                 token::Ident(_) => {
                     let ident = try!(parser.parse_ident()).to_string();
                     ecx.span_warn(DUMMY_SP, &format!("Parsing store - ident: {}", ident));
 
+                    let mut entry_parser = {
+                        let entry_tts = parser.parse_seq_to_before_end(&token::CloseDelim(token::Brace),
+                            SeqSep::trailing_allowed(token::Semi), |pp| pp.parse_token_tree());
+                        ecx.new_parser_from_tts(&entry_tts)
+                    };
+
                     match ident {
                         _ if ident == "action" => {
-                            let action = try!(parse_action(ecx, parser, span));
+                            let action = try!(parse_action(ecx, &mut entry_parser, span));
                             nodes.push(action);
                             continue;
                         },
 
                         _ if ident == "default" => {
-                            let def = try!(parse_default(ecx, parser, span));
+                            let def = try!(parse_default(ecx, &mut entry_parser, span));
                             nodes.push(def);
                             continue;
                         },
@@ -118,20 +144,81 @@ pub mod parse {
         Ok(nodes)
     }
 
-    pub fn parse_store<'cx, 'a>(ecx: &'cx ExtCtxt, mut parser: &mut Parser<'a>, span: Span) -> PResult<'a, Store> {
-        let store_name = try!(parser.parse_ident());
-        ecx.span_warn(DUMMY_SP, &format!("Parsing store - got name: {}", &store_name.to_string()));
+    fn parse_fat_arrow_expression<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>, span: Span) -> PResult<'a, Value> {
+        try!(parser.expect(&token::FatArrow));
 
-        try!(parser.expect(&token::OpenDelim(token::Brace)));
+        let expr_tts = parser.parse_seq_to_before_end(&token::CloseDelim(token::Brace), SeqSep::trailing_allowed(token::Semi), |pp| pp.parse_token_tree());
+        let mut expr_parser = ecx.new_parser_from_tts(&expr_tts);
 
-        let nodes = try!(parse_store_contents(ecx, parser, span));
-        for node in &nodes {
-            ecx.span_warn(DUMMY_SP, &format!("Node: {:?}", node));
+        //let simple_expr = try!(parse_simple_expr_until(ecx, &mut parser, span, &|token| token == &token::Semi || token == &token::CloseDelim(token::Brace)));
+        let value = try!(parse_value(ecx, parser, span));
+        if &parser.token != &token::CloseDelim(token::Brace) {
+            parser.bump();
         }
+        Ok(value)
+    }
+    */
+
+    fn parse_store_arm_keyword<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>) -> PResult<'a, StoreArmType> {
+            let ident = try!(parser.parse_ident()).to_string();
+            ecx.span_warn(DUMMY_SP, &format!("Parsing store - ident: {}", ident));
+
+            match ident {
+                _ if ident == "action" => Ok(StoreArmType::ActionArm),
+                _ if ident == "default" => Ok(StoreArmType::DefaultArm),
+
+                _ => {
+                    Err(parser.span_fatal(parser.prev_span, &format!("Parsing store - unsupported condition label: {}", &ident)))
+                }
+            }
+    }
+
+    fn parse_action_str<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>) -> PResult<'a, String> {
+        let ident = try!(parser.parse_ident()).to_string().to_owned();
+        parser.warn(&format!("Parsing store - ident: {}", &ident));
+        Ok(ident)
+    }
+
+    fn parse_store_arm<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>) -> PResult<'a, StoreNode> {
+        let arm_type = parse_store_arm_keyword(ecx, parser)?;
+        let arm = match arm_type {
+            StoreArmType::ActionArm => {
+                let action_str = parse_action_str(ecx, parser)?;
+                parser.expect(&token::FatArrow)?;
+                let value = parse_value(ecx, parser)?;
+
+                Ok(StoreNode::ActionExpr(action_str, value))
+            },
+
+            StoreArmType::DefaultArm => {
+                parser.expect(&token::FatArrow)?;
+                let value = parse_value(ecx, parser)?;
+
+                Ok(StoreNode::DefaultExpr(value))
+            }
+        };
+
+        //parser.eat(&token::Semi);
+        arm
+    }
+
+    pub fn parse_store<'cx, 'a>(ecx: &'cx ExtCtxt<'a>, parser: &mut Parser<'a>) -> PResult<'a, Store> {
+        let store_name = try!(parser.parse_ident()).to_string();
+        let lo = parser.span.lo;
+        parser.span_warn(parser.span, &format!("Parsing store - got name: {}", &store_name));
+
+        //try!(parser.expect(&token::OpenDelim(token::Brace)));
+
+        let nodes = parser.parse_unspanned_seq(
+            &token::OpenDelim(token::Brace),
+            &token::CloseDelim(token::Brace),
+            SeqSep::trailing_allowed(token::Semi),
+            |p| parse_store_arm(ecx, p)
+        )?;
 
         Ok(Store {
-            name: store_name.name.to_string(),
-            span: span,
+            name: store_name,
+            span: mk_sp(lo, parser.span.hi),
             nodes: nodes,
         })
     }
@@ -183,14 +270,14 @@ pub mod output {
     impl WriteJsSwitchBody for StoreNode {
         fn write_js_switch_body(&self, switch: &mut JsWriteSwitchBody) {
             match self {
-                &StoreNode::ActionExpr(ref act, ref simple_expr) => {
-                    switch.case_str(act, &|js_simple| {
-                        simple_expr.write_js_simple_expr(js_simple);
+                &StoreNode::ActionExpr(ref act, ref value) => {
+                    switch.case_str(act, &|v| {
+                        v.write_value(value);
                     });
                 },
-                &StoreNode::DefaultExpr(ref simple_expr) => {
-                    switch.default_case(&|js_simple| {
-                        simple_expr.write_js_simple_expr(js_simple);
+                &StoreNode::DefaultExpr(ref value) => {
+                    switch.default_case(&|v| {
+                        v.write_value(value);
                     });
                 }
             };
