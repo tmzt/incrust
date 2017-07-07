@@ -1,3 +1,6 @@
+
+### Moving this project to https://github.com/tmzt/isymtope.
+
 # incrust
 Zero-cost incremental-rendering isometric web templates in Rust
 
