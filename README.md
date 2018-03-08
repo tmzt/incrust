@@ -7,7 +7,7 @@
 
 
 # incrust
-Zero-cost incremental-rendering isometric web templates in Rust
+Zero-cost incremental-rendering isomorphic web templates in Rust
 
 Inspired by [Khufu](http://tailhook.github.io/khufu/) and [IncrementalDOM](http://google.github.io/incremental-dom/#about).
 
